@@ -11,6 +11,11 @@ Daymark is a private, offline-first Android app for habit recovery and streak tr
 - **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver` and `QuoteWidgetReceiver` are referenced by widgets already placed on users' home screens.
 - **Every Room schema change needs a migration** (see "Recipes"). Losing user data is the worst possible bug.
 
+## Git
+
+- Commit as **Manoj Anasuri <manojanasuri16@gmail.com>**, which is already set in this repo's git config. GitHub user: `manojanasuri16`.
+- **Don't add AI co-author trailers** (no `Co-Authored-By: Claude …`) to commits, and no "Generated with Claude Code" lines in PRs.
+
 ## Commands
 
 ```bash
