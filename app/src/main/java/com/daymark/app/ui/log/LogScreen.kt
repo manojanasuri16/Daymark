@@ -70,6 +70,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.domain.Format
 import com.daymark.app.domain.Messages
 import com.daymark.app.domain.Options
@@ -107,6 +108,7 @@ fun LogScreen(
 ) {
     val zone = ZoneId.systemDefault()
     val haptics = rememberHaptics()
+    val habit by vm.selectedHabit.collectAsStateWithLifecycle()
 
     var loaded by rememberSaveable { mutableStateOf(editId == 0L) }
     var timestamp by rememberSaveable {
@@ -127,8 +129,8 @@ fun LogScreen(
 
     LaunchedEffect(editId) {
         if (editId != 0L && original == null) {
-            val r = vm.relapses.value.firstOrNull { it.id == editId }
-                ?: withTimeoutOrNull(3_000) { vm.relapses.first { l -> l.any { it.id == editId } } }?.firstOrNull { it.id == editId }
+            val r = vm.allRelapses.value.firstOrNull { it.id == editId }
+                ?: withTimeoutOrNull(3_000) { vm.allRelapses.first { l -> l.any { it.id == editId } } }?.firstOrNull { it.id == editId }
             if (r != null) {
                 original = r
                 if (!loaded) {
@@ -152,7 +154,14 @@ fun LogScreen(
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(if (editId == 0L) "Log a slip" else "Edit entry") },
+            title = {
+                Column {
+                    Text(if (editId == 0L) "Log a slip" else "Edit entry")
+                    habit?.let {
+                        Text("${it.emoji}  ${it.displayName}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
             navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close") } },
             actions = {
                 if (editId != 0L) IconButton(onClick = { showConfirmDelete = true }) { Icon(Icons.Rounded.DeleteOutline, "Delete entry") }
@@ -268,13 +277,13 @@ fun LogScreen(
                         mood = mood,
                         situation = situation,
                         notes = notes.trim(),
+                        habitId = original?.habitId ?: habit?.id ?: 1L,
                     )
                     vm.saveRelapse(record)
                     if (editId != 0L) onClose()
                     else {
-                        val s = vm.settings.value
                         val ts = vm.relapses.value.map { it.timestamp } + timestamp
-                        val stats = StreakEngine.compute(s?.journeyStart ?: timestamp, ts, System.currentTimeMillis())
+                        val stats = StreakEngine.compute(habit?.startAt ?: timestamp, ts, System.currentTimeMillis())
                         savedSummary = if (stats.longestDays == 0L && stats.totalCleanDays == 0) {
                             "Every honest entry helps you understand your patterns. Your next streak starts right now."
                         } else {

@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "com.daymark.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.daymark.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     signingConfigs {
@@ -75,5 +75,6 @@ dependencies {
     implementation(libs.fragment.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.splashscreen)
+    implementation(libs.work.runtime)
     testImplementation(libs.junit)
 }

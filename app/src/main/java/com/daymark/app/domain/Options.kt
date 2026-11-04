@@ -21,5 +21,10 @@ object Options {
         Mood(5, "😄", "Great"),
     )
 
+    /** Neutral, hopeful symbols — deliberately no substance imagery that could act as a cue. */
+    val emojis = listOf("🌱", "☀️", "🌊", "🕊️", "💪", "🧘", "🌙", "🔥", "⭐", "🏔️", "🦋", "💧", "🍃", "❤️", "🚭", "📵")
+
+    val habitSuggestions = listOf("Alcohol", "Smoking", "Vaping", "Social media", "Gambling", "Junk food", "Doomscrolling", "Caffeine")
+
     fun mood(value: Int): Mood? = moods.firstOrNull { it.value == value }
 }

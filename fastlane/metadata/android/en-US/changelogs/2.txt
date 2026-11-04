@@ -1,0 +1,5 @@
+New in 1.1:
+• Track several habits, each with its own streaks, calendar and insights
+• Home-screen widgets: live Streak counter, Progress Ring, Heatmap and Daily Motivation, in 6 styles
+• Eight accent colors to choose from
+• Clearer text in dark mode

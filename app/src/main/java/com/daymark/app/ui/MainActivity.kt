@@ -15,7 +15,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -31,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -68,7 +71,10 @@ import com.daymark.app.ui.lock.LockScreen
 import com.daymark.app.ui.log.LogScreen
 import com.daymark.app.ui.onboarding.OnboardingScreen
 import com.daymark.app.ui.settings.SettingsScreen
+import com.daymark.app.ui.widgets.WidgetGalleryScreen
+import com.daymark.app.ui.theme.Accent
 import com.daymark.app.ui.theme.DaymarkTheme
+import com.daymark.app.ui.habits.HabitEditorScreen
 import com.daymark.app.ui.theme.Motion
 import kotlinx.coroutines.launch
 
@@ -100,19 +106,23 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
+            val habits by vm.habits.collectAsStateWithLifecycle()
             val s = settings ?: return@setContent
             LaunchedEffect(s.hideInRecents) {
                 if (s.hideInRecents) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
-            DaymarkTheme(themeMode = s.themeMode, dynamicColor = s.dynamicColor) {
+            DaymarkTheme(themeMode = s.themeMode, dynamicColor = s.dynamicColor, accent = Accent.of(s.accent)) {
                 CompositionLocalProvider(LocalHapticsEnabled provides s.haptics) {
-                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    // Surface (not Box) so every Text inherits onBackground — otherwise Compose defaults to black,
+                    // which is unreadable on the dark theme (onboarding & lock screens have no Scaffold).
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
                         val showLock = s.appLock && locked
                         AnimatedContent(
                             targetState = when {
                                 showLock -> Gate.LOCKED
                                 !s.onboarded -> Gate.ONBOARDING
+                                habits.isNullOrEmpty() -> Gate.LOADING // v1 → v2 migration creates tracker #1 moments after start
                                 else -> Gate.APP
                             },
                             transitionSpec = { fadeIn(Motion.standard()) togetherWith fadeOut(Motion.standard()) },
@@ -120,7 +130,8 @@ class MainActivity : FragmentActivity() {
                         ) { gate ->
                             when (gate) {
                                 Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
-                                Gate.ONBOARDING -> OnboardingScreen { name, start -> vm.completeOnboarding(name, start) }
+                                Gate.ONBOARDING -> OnboardingScreen { name, emoji, start -> vm.completeOnboarding(name, emoji, start) }
+                                Gate.LOADING -> Box(Modifier.fillMaxSize())
                                 Gate.APP -> DaymarkNav(vm, s)
                             }
                         }
@@ -135,7 +146,7 @@ class MainActivity : FragmentActivity() {
         outState.putBoolean(KEY_UNLOCKED, !locked)
     }
 
-    private enum class Gate { LOCKED, ONBOARDING, APP }
+    private enum class Gate { LOCKED, ONBOARDING, LOADING, APP }
 
     companion object {
         private const val KEY_UNLOCKED = "unlocked"
@@ -149,6 +160,9 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     INSIGHTS("insights", "Insights", Icons.Rounded.Insights),
     SETTINGS("settings", "Settings", Icons.Rounded.Settings),
 }
+
+private const val HABIT_ROUTE = "habit?id={id}"
+private fun habitRoute(id: Long = 0) = "habit?id=$id"
 
 private const val LOG_ROUTE = "log?id={id}&day={day}"
 private fun logRoute(id: Long = 0, day: Long? = null) = "log?id=$id&day=${day ?: Long.MIN_VALUE}"
@@ -206,6 +220,8 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
                     vm, padding,
                     onLogSlip = { nav.navigate(logRoute()) },
                     onOpenCalendar = { selectTab(Tab.CALENDAR) },
+                    onAddHabit = { nav.navigate(habitRoute()) },
+                    onEditHabit = { nav.navigate(habitRoute(it.id)) },
                 )
             }
             composable(Tab.CALENDAR.route) {
@@ -216,7 +232,41 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
                 )
             }
             composable(Tab.INSIGHTS.route) { InsightsScreen(vm, padding) }
-            composable(Tab.SETTINGS.route) { SettingsScreen(vm, padding) }
+            composable(Tab.SETTINGS.route) {
+                SettingsScreen(
+                    vm, padding,
+                    onOpenWidgets = { nav.navigate("widgets") },
+                    onAddHabit = { nav.navigate(habitRoute()) },
+                    onEditHabit = { nav.navigate(habitRoute(it.id)) },
+                )
+            }
+            composable(
+                HABIT_ROUTE,
+                arguments = listOf(navArgument("id") { type = NavType.LongType; defaultValue = 0L }),
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                val id = entry.arguments?.getLong("id") ?: 0L
+                val habits by vm.habits.collectAsStateWithLifecycle()
+                val existing = habits?.firstOrNull { it.id == id }
+                if (id != 0L && existing == null) return@composable
+                HabitEditorScreen(
+                    existing = existing,
+                    canDelete = (habits?.size ?: 0) > 1,
+                    onSave = { vm.saveHabit(it); nav.popBackStack() },
+                    onDelete = { vm.deleteHabit(it); nav.popBackStack() },
+                    onClose = { nav.popBackStack() },
+                )
+            }
+            composable(
+                "widgets",
+                enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },
+                popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
+            ) {
+                WidgetGalleryScreen(vm, onBack = { nav.popBackStack() }, onMessage = { m -> scope.launch { snackbar.showSnackbar(m) } })
+            }
             composable(
                 LOG_ROUTE,
                 arguments = listOf(

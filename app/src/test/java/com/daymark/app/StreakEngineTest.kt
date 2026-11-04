@@ -1,6 +1,7 @@
 package com.daymark.app
 
 import com.daymark.app.data.BackupCodec
+import com.daymark.app.data.HabitEntity
 import com.daymark.app.data.InvalidBackupException
 import com.daymark.app.data.RelapseEntity
 import com.daymark.app.data.Settings
@@ -116,15 +117,35 @@ class StreakEngineTest {
         assertEquals(InsightsData.Trend.NOT_ENOUGH_DATA, InsightsEngine.trend(listOf(1.0)))
     }
 
-    @Test fun `backup round trip`() {
-        val settings = Settings(onboarded = true, journeyStart = at(2026, 1, 1), habitName = "Sugar")
-        val entities = listOf(RelapseEntity(id = 5, timestamp = at(2026, 1, 4), triggers = "Stress|Late night", mood = 2, situation = "Online", notes = "ok"))
-        val text = BackupCodec.encode(settings, entities, now = at(2026, 2, 1))
-        val file = BackupCodec.decode(text)
-        assertEquals("Sugar", file.habitName)
-        val restored = BackupCodec.toEntities(file).single().toRecord()
-        assertEquals(listOf("Stress", "Late night"), restored.triggers)
-        assertEquals("ok", restored.notes)
+    @Test fun `backup round trip with multiple trackers`() {
+        val settings = Settings(onboarded = true, accent = "ocean")
+        val habits = listOf(
+            HabitEntity(id = 7, name = "Sugar", emoji = "🌱", startAt = at(2026, 1, 1)),
+            HabitEntity(id = 9, name = "Smoking", emoji = "🚭", startAt = at(2026, 2, 1)),
+        )
+        val entities = listOf(
+            RelapseEntity(id = 5, habitId = 7, timestamp = at(2026, 1, 4), triggers = "Stress|Late night", mood = 2, situation = "Online", notes = "ok"),
+            RelapseEntity(id = 6, habitId = 9, timestamp = at(2026, 2, 3), triggers = "Cravings", mood = 1),
+        )
+        val file = BackupCodec.decode(BackupCodec.encode(settings, habits, entities, now = at(2026, 3, 1)))
+        assertEquals(listOf("Sugar", "Smoking"), file.habits.map { it.name })
+        assertEquals("ocean", file.accent)
+        val (h, r) = BackupCodec.toEntities(file)
+        assertEquals(2, h.size)
+        val sugarEntries = r.filter { it.habitId == h[0].id }.map { it.toRecord() }
+        assertEquals(listOf("Stress", "Late night"), sugarEntries.single().triggers)
+        assertEquals("ok", sugarEntries.single().notes)
+        assertEquals(1, r.count { it.habitId == h[1].id })
+    }
+
+    @Test fun `v1 backup is upgraded to a single tracker`() {
+        val v1 = """{"app":"daymark","version":1,"exportedAt":1,"habitName":"Alcohol","journeyStart":${at(2026, 1, 1)},
+            "relapses":[{"timestamp":${at(2026, 1, 9)},"triggers":["Stress"],"mood":2}]}"""
+        val file = BackupCodec.decode(v1)
+        assertEquals(1, file.habits.size)
+        assertEquals("Alcohol", file.habits.single().name)
+        val (h, r) = BackupCodec.toEntities(file)
+        assertEquals(h.single().id, r.single().habitId)
     }
 
     @Test(expected = InvalidBackupException::class)

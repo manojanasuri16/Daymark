@@ -24,6 +24,9 @@ data class Settings(
     val appLock: Boolean = false,
     val hideInRecents: Boolean = false,
     val haptics: Boolean = true,
+    /** 0 = first tracker. */
+    val selectedHabitId: Long = 0L,
+    val accent: String = "dusk",
 )
 
 private val Context.dataStore by preferencesDataStore(name = "daymark_settings")
@@ -38,6 +41,8 @@ class SettingsRepository(private val context: Context) {
         val appLock = booleanPreferencesKey("app_lock")
         val hideInRecents = booleanPreferencesKey("hide_in_recents")
         val haptics = booleanPreferencesKey("haptics")
+        val selectedHabit = longPreferencesKey("selected_habit")
+        val accent = stringPreferencesKey("accent")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -53,13 +58,17 @@ class SettingsRepository(private val context: Context) {
         appLock = this[Keys.appLock] ?: false,
         hideInRecents = this[Keys.hideInRecents] ?: false,
         haptics = this[Keys.haptics] ?: true,
+        selectedHabitId = this[Keys.selectedHabit] ?: 0L,
+        accent = this[Keys.accent] ?: "dusk",
     )
 
-    suspend fun completeOnboarding(habitName: String, journeyStart: Long) = context.dataStore.edit {
-        it[Keys.habitName] = habitName.trim()
-        it[Keys.journeyStart] = journeyStart
+    suspend fun completeOnboarding(firstHabitId: Long) = context.dataStore.edit {
+        it[Keys.selectedHabit] = firstHabitId
         it[Keys.onboarded] = true
     }
+
+    suspend fun setSelectedHabit(id: Long) = context.dataStore.edit { it[Keys.selectedHabit] = id }
+    suspend fun setAccent(id: String) = context.dataStore.edit { it[Keys.accent] = id }
 
     suspend fun setHabitName(v: String) = context.dataStore.edit { it[Keys.habitName] = v.trim() }
     suspend fun setJourneyStart(v: Long) = context.dataStore.edit { it[Keys.journeyStart] = v }
@@ -78,6 +87,8 @@ class SettingsRepository(private val context: Context) {
         it[Keys.appLock] = s.appLock
         it[Keys.hideInRecents] = s.hideInRecents
         it[Keys.haptics] = s.haptics
+        it[Keys.selectedHabit] = s.selectedHabitId
+        it[Keys.accent] = s.accent
     }
 
     suspend fun clear() = context.dataStore.edit { it.clear() }

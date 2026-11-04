@@ -12,7 +12,19 @@ data class RelapseRecord(
     val mood: Int,
     val situation: String,
     val notes: String,
+    val habitId: Long = 1,
 )
+
+/** Something the user is tracking (e.g. alcohol, smoking). Each has its own start, streaks and history. */
+data class Habit(
+    val id: Long,
+    val name: String,
+    val emoji: String,
+    val startAt: Long,
+    val sortOrder: Int = 0,
+) {
+    val displayName: String get() = name.ifBlank { "My journey" }
+}
 
 data class InsightsData(
     val monthlyRelapses: List<Pair<YearMonth, Int>>,

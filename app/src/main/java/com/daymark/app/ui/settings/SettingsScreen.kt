@@ -5,6 +5,25 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import com.daymark.app.domain.Habit
+import com.daymark.app.ui.components.pressScale
+import com.daymark.app.ui.theme.Accent
+import com.daymark.app.ui.theme.DaymarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +49,7 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -77,7 +97,14 @@ import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
+fun SettingsScreen(
+    vm: MainViewModel,
+    contentPadding: PaddingValues,
+    onOpenWidgets: () -> Unit = {},
+    onAddHabit: () -> Unit = {},
+    onEditHabit: (Habit) -> Unit = {},
+) {
+    val habits by vm.habits.collectAsStateWithLifecycle()
     val s by vm.settings.collectAsStateWithLifecycle()
     val settings = s ?: Settings()
     val context = LocalContext.current
@@ -97,13 +124,9 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
         if (uri != null) vm.importBackup(uri)
     }
 
-    var editName by remember { mutableStateOf(false) }
-    var pickDate by remember { mutableStateOf(false) }
-    var pickTime by remember { mutableStateOf<LocalDate?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
 
-    val start = Instant.ofEpochMilli(settings.journeyStart).atZone(zone)
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -116,16 +139,27 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
     ) {
         item { Text("Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(4.dp)) }
 
-        item { SectionHeader("Your journey") }
+        item { SectionHeader("Trackers") }
         item {
             Group {
-                SettingRow(Icons.Rounded.Edit, "Moving away from", settings.habitName.ifBlank { "Not set" }, onClick = { editName = true })
+                habits.orEmpty().forEachIndexed { i, h ->
+                    if (i > 0) Divider()
+                    val since = Instant.ofEpochMilli(h.startAt).atZone(zone).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onEditHabit(h) }.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(h.emoji, fontSize = 22.sp, modifier = Modifier.width(24.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(h.displayName, style = MaterialTheme.typography.bodyLarge)
+                            Text("Tracking since $since", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
+                }
                 Divider()
-                SettingRow(
-                    Icons.Rounded.Event, "Journey start",
-                    start.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)),
-                    onClick = { pickDate = true },
-                )
+                SettingRow(Icons.Rounded.Add, "Add a tracker", "Track another habit with its own streaks", onClick = onAddHabit)
             }
         }
 
@@ -146,9 +180,33 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
                         }
                     }
                 }
+                Divider()
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Palette, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Accent colour", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (settings.dynamicColor) "Using wallpaper colours" else Accent.of(settings.accent).label,
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(start = 40.dp)) {
+                        items(Accent.entries) { a ->
+                            AccentDot(a, selected = !settings.dynamicColor && a.id == Accent.of(settings.accent).id) {
+                                haptics.tick()
+                                if (settings.dynamicColor) vm.setDynamicColor(false)
+                                vm.setAccent(a.id)
+                            }
+                        }
+                    }
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Divider()
-                    SwitchRow(Icons.Rounded.Palette, "Wallpaper colours", "Use Material You dynamic colour", settings.dynamicColor) {
+                    SwitchRow(Icons.Rounded.Wallpaper, "Wallpaper colours", "Use Material You dynamic colour", settings.dynamicColor) {
                         vm.setDynamicColor(it)
                     }
                 }
@@ -156,6 +214,13 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
                 SwitchRow(Icons.Rounded.Vibration, "Haptic feedback", "Gentle taps for meaningful moments", settings.haptics) {
                     vm.setHaptics(it)
                 }
+            }
+        }
+
+        item { SectionHeader("Home screen") }
+        item {
+            Group {
+                SettingRow(Icons.Rounded.Widgets, "Widgets", "Streak, progress ring, heatmap and daily motivation — five styles", onClick = onOpenWidgets)
             }
         }
 
@@ -211,58 +276,6 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
         }
     }
 
-    if (editName) {
-        var text by remember { mutableStateOf(settings.habitName) }
-        AlertDialog(
-            onDismissRequest = { editName = false },
-            title = { Text("What are you moving away from?") },
-            text = {
-                OutlinedTextField(text, { text = it.take(40) }, singleLine = true, placeholder = { Text("e.g. Alcohol") },
-                    shape = RoundedCornerShape(14.dp))
-            },
-            confirmButton = { TextButton(onClick = { vm.setHabitName(text); editName = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { editName = false }) { Text("Cancel") } },
-        )
-    }
-
-    if (pickDate) {
-        val today = LocalDate.now()
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) =
-                    Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate() <= today
-            },
-        )
-        DatePickerDialog(
-            onDismissRequest = { pickDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickDate = false
-                    pickTime = state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                }) { Text("Next") }
-            },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Cancel") } },
-        ) { DatePicker(state) }
-    }
-
-    pickTime?.let { date ->
-        val state = rememberTimePickerState(start.hour, start.minute)
-        AlertDialog(
-            onDismissRequest = { pickTime = null },
-            title = { Text("Start time") },
-            text = { TimePicker(state) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val t = LocalDateTime.of(date, LocalTime.of(state.hour, state.minute)).atZone(zone).toInstant().toEpochMilli()
-                    vm.setJourneyStart(minOf(t, System.currentTimeMillis()))
-                    pickTime = null
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { pickTime = null }) { Text("Cancel") } },
-        )
-    }
-
     if (confirmRestore) {
         AlertDialog(
             onDismissRequest = { confirmRestore = false },
@@ -289,6 +302,27 @@ fun SettingsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
             },
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun AccentDot(accent: Accent, selected: Boolean, onClick: () -> Unit) {
+    val dark = DaymarkTheme.colors.isDark
+    val c = Color(if (dark) accent.dark else accent.light)
+    val src = remember { MutableInteractionSource() }
+    Box(
+        Modifier
+            .size(44.dp)
+            .pressScale(src, 0.88f)
+            .clip(CircleShape)
+            .clickable(src, null, onClick = onClick)
+            .then(if (selected) Modifier.border(3.dp, c, CircleShape) else Modifier)
+            .padding(if (selected) 6.dp else 2.dp)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(Color(accent.heroLight.first), c))),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Icon(Icons.Rounded.Check, accent.label, tint = Color.White, modifier = Modifier.size(18.dp))
     }
 }
 
