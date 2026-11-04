@@ -1,0 +1,111 @@
+name: Release
+
+# Push a tag like v1.2.0 (scripts/release.sh does this for you) to build, sign and publish.
+# Run manually from the Actions tab ("Run workflow") for a dry run: it builds and signs but publishes nothing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Optional. Add this secret once your Play Console account exists to upload builds automatically.
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.DAYMARK_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret DAYMARK_KEYSTORE_BASE64 is missing — see docs/MAINTAINING.md (Signing key)."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ORG_GRADLE_PROJECT_DAYMARK_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Read version
+        id: version
+        run: |
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "v$NAME" != "${{ github.ref_name }}" ]; then
+            echo "::error::Tag ${{ github.ref_name }} doesn't match versionName $NAME in app/build.gradle.kts"
+            exit 1
+          fi
+          NOTES="fastlane/metadata/android/en-US/changelogs/$CODE.txt"
+          if [ ! -f "$NOTES" ]; then
+            echo "::error::Missing release notes $NOTES"
+            exit 1
+          fi
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Test, lint and build signed APK + AAB
+        env:
+          ORG_GRADLE_PROJECT_DAYMARK_STORE_PASSWORD: ${{ secrets.DAYMARK_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_DAYMARK_KEY_ALIAS: ${{ secrets.DAYMARK_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_DAYMARK_KEY_PASSWORD: ${{ secrets.DAYMARK_KEY_PASSWORD }}
+        run: ./gradlew testDebugUnitTest lintRelease assembleRelease bundleRelease
+
+      - name: Verify it is signed with the Daymark key (not the debug key)
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | tee signer.txt
+          grep -q "CN=Daymark" signer.txt || { echo "::error::Release APK is not signed with the Daymark key"; exit 1; }
+
+      - name: Name artifacts
+        run: |
+          mkdir dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/Daymark-v${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/Daymark-v${{ steps.version.outputs.name }}-playstore.aab"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daymark-v${{ steps.version.outputs.name }}
+          path: dist/
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## Install"
+            echo "Download **Daymark-v${{ steps.version.outputs.name }}.apk** on your phone and open it. Updates install over the previous version and keep your data."
+            echo
+            echo "_The .aab file is for Google Play uploads and can't be installed directly._"
+            echo
+            echo "## What's new"
+            cat "${{ steps.version.outputs.notes }}"
+          } > release-notes.md
+          gh release create "${{ github.ref_name }}" dist/* --title "Daymark ${{ steps.version.outputs.name }}" --notes-file release-notes.md
+
+      - name: Upload to Google Play (internal testing, as a draft)
+        if: github.ref_type == 'tag' && env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.daymark.app
+          releaseFiles: dist/*.aab
+          track: internal
+          status: draft

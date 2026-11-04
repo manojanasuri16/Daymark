@@ -74,7 +74,7 @@ Copy the text from `fastlane/metadata/android/en-US/` and upload the icon, featu
 2. Add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 3. Run `./gradlew bundleRelease` and upload the AAB to the track.
 
-Optional automation: create a Play service account in Google Cloud and grant it access in Play Console. `fastlane supply` can then upload builds and metadata from this folder structure.
+Easier: run `scripts/release.sh X.Y.Z` and upload the `.aab` from the GitHub Release. To upload automatically, follow *Turning on automatic Play uploads* in `docs/MAINTAINING.md`.
 
 ---
 

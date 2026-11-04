@@ -1,0 +1,17 @@
+# Opens pull requests for library updates. CI builds and tests each one: merge it if it's green.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns: ["androidx.*"]
+      kotlin-and-build:
+        patterns: ["org.jetbrains.kotlin*", "com.android.tools.build*", "com.google.devtools.ksp*", "org.jetbrains.kotlinx*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
