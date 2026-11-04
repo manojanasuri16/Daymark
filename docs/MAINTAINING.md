@@ -69,6 +69,8 @@ Once a month, GitHub opens pull requests that update libraries. For each one:
 2. If it's green, merge it.
 3. If it's red, ask Claude: *"Dependabot PR #N fails, please fix it"*.
 
+> **Known as of Nov 2026:** PRs that bump the **Android Gradle Plugin, Kotlin, KSP, Gradle or the androidx group** fail or are on hold until the build-toolchain upgrade (AGP 9 and compileSdk 37) is done. That's expected, not a bug. When you're ready, ask Claude: *"do the pending toolchain upgrade from CLAUDE.md"*. It's one change, tested and then released.
+
 ## Yearly Android requirement
 
 Google Play requires apps to target a recent Android version, with a new deadline each August, and Play Console emails you beforehand. To comply:
