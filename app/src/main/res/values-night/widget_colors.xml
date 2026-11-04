@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="wdg_minimal_start">#FF1B2120</color>
+    <color name="wdg_minimal_center">#FF181D1C</color>
+    <color name="wdg_minimal_end">#FF141918</color>
+    <color name="wdg_minimal_text">#FFE7ECE9</color>
+    <color name="wdg_minimal_soft">#FF9EA8A4</color>
+    <color name="wdg_minimal_accent">#FF7FD3B9</color>
+    <color name="wdg_minimal_track">#297FD3B9</color>
+    <color name="wdg_minimal_clean">#FF4CC38F</color>
+    <color name="wdg_minimal_relapse">#FFF07C72</color>
+    <color name="wdg_minimal_untracked">#FF2A3230</color>
+</resources>

@@ -1,6 +1,13 @@
 package com.daymark.app.ui.dashboard
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.IconButton
+import com.daymark.app.domain.Habit
+import com.daymark.app.ui.components.AnimatedText
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -24,6 +31,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,11 +97,21 @@ fun DashboardScreen(
     contentPadding: PaddingValues,
     onLogSlip: () -> Unit,
     onOpenCalendar: () -> Unit,
+    onAddHabit: () -> Unit,
+    onEditHabit: (Habit) -> Unit,
 ) {
-    val settings by vm.settings.collectAsStateWithLifecycle()
+    val selected by vm.selectedHabit.collectAsStateWithLifecycle()
+    val overview by vm.overview.collectAsStateWithLifecycle()
     val stats by vm.stats.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
-    val habit = settings?.habitName.orEmpty()
+    val habit = selected?.name.orEmpty()
+    val haptics = rememberHaptics()
+    val chipsState = rememberLazyListState()
+    // Keep the selected tracker's chip in view when switching or when trackers are added/removed.
+    LaunchedEffect(selected?.id, overview.size) {
+        val i = overview.indexOfFirst { it.habit.id == selected?.id }
+        if (i >= 0) chipsState.animateScrollToItem(if (i == 0) 0 else i - 1)
+    }
     val today = remember(now / 3_600_000) { LocalDate.now() }
 
     LazyColumn(
@@ -105,17 +124,37 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item("header") {
-            Column(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
-                Text(
-                    Messages.greeting(LocalTime.now().hour),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    if (habit.isBlank()) "Your journey" else "Free from $habit",
-                    style = MaterialTheme.typography.headlineLarge,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+            Row(Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        Messages.greeting(LocalTime.now().hour),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    AnimatedText(
+                        if (habit.isBlank()) "Your journey" else "Free from $habit",
+                        MaterialTheme.typography.headlineLarge,
+                    )
+                }
+                selected?.let { h ->
+                    IconButton(onClick = { onEditHabit(h) }) {
+                        Icon(Icons.Rounded.Tune, "Edit tracker", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item("trackers") {
+            LazyRow(state = chipsState, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 2.dp)) {
+                items(overview, key = { it.habit.id }) { summary ->
+                    TrackerChip(
+                        emoji = summary.habit.emoji,
+                        label = summary.habit.displayName,
+                        days = summary.stats.currentDays,
+                        selected = summary.habit.id == selected?.id,
+                        onClick = { haptics.tick(); vm.selectHabit(summary.habit.id) },
+                    )
+                }
+                item("add") { AddTrackerChip(compact = overview.size > 1, onClick = onAddHabit) }
             }
         }
         item("hero") { HeroCard(stats) }
@@ -343,6 +382,51 @@ private fun Badge(
             color = if (earned) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+@Composable
+private fun TrackerChip(emoji: String, label: String, days: Long, selected: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+        Motion.standard(), label = "chipBg",
+    )
+    val fg = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = bg,
+        modifier = Modifier.pressScale(src, 0.95f).clickable(src, null, onClick = onClick),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(emoji, fontSize = 18.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "${days}d", style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddTrackerChip(compact: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.pressScale(src, 0.95f).clickable(src, null, onClick = onClick),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Add, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            if (!compact) {
+                Spacer(Modifier.width(6.dp))
+                Text("Track something else", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        }
     }
 }
 

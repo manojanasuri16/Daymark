@@ -1,5 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">Your live streak and a daily encouragement</string>
-    <string name="widget_name">Daymark streak</string>
+    <string name="widget_streak_name">Streak</string>
+    <string name="widget_streak_description">Live streak counter with a daily encouragement</string>
+    <string name="widget_ring_name">Progress ring</string>
+    <string name="widget_ring_description">Your streak inside a ring that fills toward the next milestone</string>
+    <string name="widget_heatmap_name">Clean-day heatmap</string>
+    <string name="widget_heatmap_description">Your recent weeks at a glance: clean, slip and untracked days</string>
+    <string name="widget_quote_name">Daily motivation</string>
+    <string name="widget_quote_description">A gentle message each day. Tap for another.</string>
 </resources>

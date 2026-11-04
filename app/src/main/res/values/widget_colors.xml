@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single source of truth for widget styles: used by backgrounds, Glance text, bitmaps and in-app previews. -->
+<resources>
+    <!-- Dusk: indigo evening sky with a rose horizon (default) -->
+    <color name="wdg_dusk_start">#FF232A6E</color>
+    <color name="wdg_dusk_center">#FF4A52B8</color>
+    <color name="wdg_dusk_end">#FFC07A9A</color>
+    <color name="wdg_dusk_text">#FFFFFFFF</color>
+    <color name="wdg_dusk_soft">#CCFFFFFF</color>
+    <color name="wdg_dusk_accent">#FFFFD3E2</color>
+    <color name="wdg_dusk_track">#2EFFFFFF</color>
+    <color name="wdg_dusk_clean">#FF9FE6C8</color>
+    <color name="wdg_dusk_relapse">#FFFF9A87</color>
+    <color name="wdg_dusk_untracked">#24FFFFFF</color>
+
+    <!-- Dawn: teal night sky warming into sunrise -->
+    <color name="wdg_dawn_start">#FF1C5547</color>
+    <color name="wdg_dawn_center">#FF2E7E68</color>
+    <color name="wdg_dawn_end">#FFC98A5F</color>
+    <color name="wdg_dawn_text">#FFFFFFFF</color>
+    <color name="wdg_dawn_soft">#CCFFFFFF</color>
+    <color name="wdg_dawn_accent">#FFFFD9B8</color>
+    <color name="wdg_dawn_track">#2EFFFFFF</color>
+    <color name="wdg_dawn_clean">#FF8BE3BD</color>
+    <color name="wdg_dawn_relapse">#FFFF9A87</color>
+    <color name="wdg_dawn_untracked">#24FFFFFF</color>
+
+    <!-- Forest: deep, quiet green -->
+    <color name="wdg_forest_start">#FF2A6252</color>
+    <color name="wdg_forest_center">#FF1E4A3E</color>
+    <color name="wdg_forest_end">#FF12302A</color>
+    <color name="wdg_forest_text">#FFEFF8F3</color>
+    <color name="wdg_forest_soft">#B3EFF8F3</color>
+    <color name="wdg_forest_accent">#FF8FE0C4</color>
+    <color name="wdg_forest_track">#29EFF8F3</color>
+    <color name="wdg_forest_clean">#FF6FD3A6</color>
+    <color name="wdg_forest_relapse">#FFFF8C7C</color>
+    <color name="wdg_forest_untracked">#21EFF8F3</color>
+
+    <!-- Midnight: near-black with a teal glow -->
+    <color name="wdg_midnight_start">#FF1C2330</color>
+    <color name="wdg_midnight_center">#FF131924</color>
+    <color name="wdg_midnight_end">#FF0A0D12</color>
+    <color name="wdg_midnight_text">#FFF2F5F8</color>
+    <color name="wdg_midnight_soft">#FF9AA5B1</color>
+    <color name="wdg_midnight_accent">#FF7FD3B9</color>
+    <color name="wdg_midnight_track">#24F2F5F8</color>
+    <color name="wdg_midnight_clean">#FF4CC38F</color>
+    <color name="wdg_midnight_relapse">#FFF07C72</color>
+    <color name="wdg_midnight_untracked">#1FF2F5F8</color>
+
+    <!-- Sunrise: soft warm light -->
+    <color name="wdg_sunrise_start">#FFFFF4EA</color>
+    <color name="wdg_sunrise_center">#FFFFE6D2</color>
+    <color name="wdg_sunrise_end">#FFFFD2B0</color>
+    <color name="wdg_sunrise_text">#FF3A1F10</color>
+    <color name="wdg_sunrise_soft">#FF8A5A3C</color>
+    <color name="wdg_sunrise_accent">#FFC2622F</color>
+    <color name="wdg_sunrise_track">#29C2622F</color>
+    <color name="wdg_sunrise_clean">#FF3BA57B</color>
+    <color name="wdg_sunrise_relapse">#FFE0675C</color>
+    <color name="wdg_sunrise_untracked">#1F3A1F10</color>
+
+    <!-- Minimal: follows the system light/dark theme (night values in values-night) -->
+    <color name="wdg_minimal_start">#FFFFFFFF</color>
+    <color name="wdg_minimal_center">#FFFFFFFF</color>
+    <color name="wdg_minimal_end">#FFF6F5F1</color>
+    <color name="wdg_minimal_text">#FF181C1B</color>
+    <color name="wdg_minimal_soft">#FF66706B</color>
+    <color name="wdg_minimal_accent">#FF2B7A67</color>
+    <color name="wdg_minimal_track">#1F2B7A67</color>
+    <color name="wdg_minimal_clean">#FF3BA57B</color>
+    <color name="wdg_minimal_relapse">#FFE0675C</color>
+    <color name="wdg_minimal_untracked">#FFE6E8E4</color>
+</resources>

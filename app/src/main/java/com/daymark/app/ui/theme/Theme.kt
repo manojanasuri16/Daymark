@@ -35,79 +35,93 @@ data class DaymarkColors(
     val isDark: Boolean,
 )
 
-private val LightScheme = lightColorScheme(
-    primary = Color(0xFF2B7A67),
+/** One accent = primary family + hero gradient, for light and dark. Surfaces stay neutral for every accent. */
+enum class Accent(
+    val id: String,
+    val label: String,
+    val light: Long, val dark: Long,
+    val containerLight: Long, val containerDark: Long,
+    val onContainerLight: Long, val onContainerDark: Long,
+    val heroLight: Pair<Long, Long>, val heroDark: Pair<Long, Long>,
+) {
+    DUSK("dusk", "Dusk", 0xFF4C55C7, 0xFFB4BAFF, 0xFFE0E2FF, 0xFF2E3478, 0xFF0E1257, 0xFFE0E2FF, 0xFF5A63DA to 0xFF2E3590, 0xFF2D3375 to 0xFF171A3C),
+    OCEAN("ocean", "Ocean", 0xFF1F6FB2, 0xFF9CCBFF, 0xFFD4E6FA, 0xFF0E4170, 0xFF001D36, 0xFFD4E6FA, 0xFF2A80C6 to 0xFF164A7E, 0xFF164272 to 0xFF0B2340),
+    SUNSET("sunset", "Sunset", 0xFFC2532F, 0xFFFFB59E, 0xFFFFDBD0, 0xFF702410, 0xFF3A0B00, 0xFFFFDBD0, 0xFFE27350 to 0xFFA03A24, 0xFF7A2E1C to 0xFF3A150C),
+    ROSE("rose", "Rose", 0xFFAE426D, 0xFFFFB0CB, 0xFFFFD9E4, 0xFF6B1E3D, 0xFF3E0021, 0xFFFFD9E4, 0xFFCA578B to 0xFF7E2650, 0xFF6E2346 to 0xFF351021),
+    VIOLET("violet", "Violet", 0xFF7A4BC2, 0xFFD3B8FF, 0xFFEBDDFF, 0xFF45247A, 0xFF2A0067, 0xFFEBDDFF, 0xFF8C5ED8 to 0xFF4D2A8C, 0xFF4A2A80 to 0xFF22123E),
+    AMBER("amber", "Amber", 0xFF8F5B00, 0xFFFFC96B, 0xFFFFE2B5, 0xFF573600, 0xFF2D1A00, 0xFFFFE2B5, 0xFFD08A1E to 0xFF8A5200, 0xFF6B4300 to 0xFF2E1C00),
+    GRAPHITE("graphite", "Graphite", 0xFF3D4450, 0xFFC6CCD6, 0xFFE1E4EA, 0xFF353B45, 0xFF151A22, 0xFFE1E4EA, 0xFF525B6B to 0xFF262B33, 0xFF2E333C to 0xFF15181D),
+    FOREST("forest", "Forest", 0xFF2B7A67, 0xFF7FD3B9, 0xFFCDEDE2, 0xFF14503F, 0xFF0B2E25, 0xFFCDEDE2, 0xFF2F8A72 to 0xFF1D5E4E, 0xFF1C5446 to 0xFF10302A);
+
+    companion object {
+        val DEFAULT = DUSK
+        fun of(id: String?) = entries.firstOrNull { it.id == id } ?: DEFAULT
+    }
+}
+
+private fun lightScheme(a: Accent) = lightColorScheme(
+    primary = Color(a.light),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFCDEDE2),
-    onPrimaryContainer = Color(0xFF0B2E25),
-    secondary = Color(0xFFB8673A),
+    primaryContainer = Color(a.containerLight),
+    onPrimaryContainer = Color(a.onContainerLight),
+    secondary = Color(a.light),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFE3D1),
-    onSecondaryContainer = Color(0xFF3A1A07),
-    tertiary = Color(0xFF5C6BC0),
-    background = Color(0xFFF6F5F1),
-    onBackground = Color(0xFF181C1B),
-    surface = Color(0xFFF6F5F1),
-    onSurface = Color(0xFF181C1B),
-    surfaceVariant = Color(0xFFE5E8E4),
-    onSurfaceVariant = Color(0xFF5B635F),
+    secondaryContainer = Color(a.containerLight),
+    onSecondaryContainer = Color(a.onContainerLight),
+    tertiary = Color(a.light),
+    background = Color(0xFFF7F7F5),
+    onBackground = Color(0xFF1A1B1E),
+    surface = Color(0xFFF7F7F5),
+    onSurface = Color(0xFF1A1B1E),
+    surfaceVariant = Color(0xFFE6E6E9),
+    onSurfaceVariant = Color(0xFF5E6068),
     surfaceContainerLowest = Color(0xFFFFFFFF),
     surfaceContainerLow = Color(0xFFFFFFFF),
     surfaceContainer = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFF0F1EE),
-    surfaceContainerHighest = Color(0xFFE9EBE7),
-    outline = Color(0xFFBFC6C2),
-    outlineVariant = Color(0xFFDDE1DE),
+    surfaceContainerHigh = Color(0xFFF0F0F2),
+    surfaceContainerHighest = Color(0xFFE9E9EC),
+    outline = Color(0xFFC3C4CA),
+    outlineVariant = Color(0xFFE0E0E4),
     error = Color(0xFFC4453B),
 )
 
-private val DarkScheme = darkColorScheme(
-    primary = Color(0xFF7FD3B9),
-    onPrimary = Color(0xFF003828),
-    primaryContainer = Color(0xFF14503F),
-    onPrimaryContainer = Color(0xFFCDEDE2),
-    secondary = Color(0xFFF2B48C),
-    onSecondary = Color(0xFF4A230B),
-    secondaryContainer = Color(0xFF5E3417),
-    onSecondaryContainer = Color(0xFFFFE3D1),
-    tertiary = Color(0xFFA9B4FF),
-    background = Color(0xFF0D1211),
-    onBackground = Color(0xFFE1E5E2),
-    surface = Color(0xFF0D1211),
-    onSurface = Color(0xFFE1E5E2),
-    surfaceVariant = Color(0xFF29302D),
-    onSurfaceVariant = Color(0xFFA9B2AE),
-    surfaceContainerLowest = Color(0xFF0A0E0D),
-    surfaceContainerLow = Color(0xFF151B19),
-    surfaceContainer = Color(0xFF171E1C),
-    surfaceContainerHigh = Color(0xFF1F2725),
-    surfaceContainerHighest = Color(0xFF29312F),
-    outline = Color(0xFF59625E),
-    outlineVariant = Color(0xFF2E3633),
+private fun darkScheme(a: Accent) = darkColorScheme(
+    primary = Color(a.dark),
+    onPrimary = Color(a.onContainerLight),
+    primaryContainer = Color(a.containerDark),
+    onPrimaryContainer = Color(a.onContainerDark),
+    secondary = Color(a.dark),
+    onSecondary = Color(a.onContainerLight),
+    secondaryContainer = Color(a.containerDark),
+    onSecondaryContainer = Color(a.onContainerDark),
+    tertiary = Color(a.dark),
+    background = Color(0xFF0F1012),
+    onBackground = Color(0xFFE4E4E8),
+    surface = Color(0xFF0F1012),
+    onSurface = Color(0xFFE4E4E8),
+    surfaceVariant = Color(0xFF2B2D33),
+    onSurfaceVariant = Color(0xFFAAADB6),
+    surfaceContainerLowest = Color(0xFF0B0C0E),
+    surfaceContainerLow = Color(0xFF16171A),
+    surfaceContainer = Color(0xFF191A1E),
+    surfaceContainerHigh = Color(0xFF212328),
+    surfaceContainerHighest = Color(0xFF2B2D33),
+    outline = Color(0xFF5B5E66),
+    outlineVariant = Color(0xFF30323A),
     error = Color(0xFFF08A80),
 )
 
-private val LightExtra = DaymarkColors(
-    clean = Color(0xFF3BA57B),
-    relapse = Color(0xFFE0675C),
-    untracked = Color(0xFFDCDDD8),
-    accentWarm = Color(0xFFE9A06B),
-    heroGradientTop = Color(0xFF2F8A72),
-    heroGradientBottom = Color(0xFF1D5E4E),
-    isDark = false,
+private fun extras(a: Accent, dark: Boolean) = DaymarkColors(
+    clean = if (dark) Color(0xFF4CC38F) else Color(0xFF3BA57B),
+    relapse = if (dark) Color(0xFFF07C72) else Color(0xFFE0675C),
+    untracked = if (dark) Color(0xFF2B2D33) else Color(0xFFDFDFE3),
+    accentWarm = if (dark) Color(0xFFF2B48C) else Color(0xFFE39A62),
+    heroGradientTop = Color(if (dark) a.heroDark.first else a.heroLight.first),
+    heroGradientBottom = Color(if (dark) a.heroDark.second else a.heroLight.second),
+    isDark = dark,
 )
 
-private val DarkExtra = DaymarkColors(
-    clean = Color(0xFF4CC38F),
-    relapse = Color(0xFFF07C72),
-    untracked = Color(0xFF2A3230),
-    accentWarm = Color(0xFFF2B48C),
-    heroGradientTop = Color(0xFF1C5446),
-    heroGradientBottom = Color(0xFF10302A),
-    isDark = true,
-)
-
-val LocalDaymarkColors = staticCompositionLocalOf { LightExtra }
+val LocalDaymarkColors = staticCompositionLocalOf { extras(Accent.DEFAULT, false) }
 
 /** True when the user has turned animations off system-wide; components fall back to cross-fades. */
 val LocalReducedMotion = staticCompositionLocalOf { false }
@@ -139,6 +153,7 @@ val HeroNumber = TextStyle(fontSize = 96.sp, fontWeight = FontWeight.Bold, lette
 fun DaymarkTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = false,
+    accent: Accent = Accent.DEFAULT,
     content: @Composable () -> Unit,
 ) {
     val dark = when (themeMode) {
@@ -150,8 +165,8 @@ fun DaymarkTheme(
     val scheme: ColorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkScheme
-        else -> LightScheme
+        dark -> darkScheme(accent)
+        else -> lightScheme(accent)
     }
     val reduced = remember {
         runCatching {
@@ -159,7 +174,7 @@ fun DaymarkTheme(
         }.getOrDefault(false)
     }
     CompositionLocalProvider(
-        LocalDaymarkColors provides if (dark) DarkExtra else LightExtra,
+        LocalDaymarkColors provides extras(accent, dark),
         LocalReducedMotion provides reduced,
     ) {
         MaterialTheme(colorScheme = scheme, typography = DaymarkTypography, content = content)

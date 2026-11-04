@@ -82,11 +82,11 @@ fun CalendarScreen(
     onLogForDay: (LocalDate) -> Unit,
     onEdit: (RelapseRecord) -> Unit,
 ) {
-    val settings by vm.settings.collectAsStateWithLifecycle()
+    val habit by vm.selectedHabit.collectAsStateWithLifecycle()
     val relapses by vm.relapses.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     val today = LocalDate.now()
-    val journeyStart = settings?.journeyStart ?: System.currentTimeMillis()
+    val journeyStart = habit?.startAt ?: System.currentTimeMillis()
     val earliest = relapses.minOfOrNull { it.timestamp }
     val startDate = StreakEngine.toDate(earliest?.let { minOf(it, journeyStart) } ?: journeyStart, zone)
     val relapseDates = remember(relapses) { StreakEngine.relapseDates(relapses.map { it.timestamp }, zone) }
@@ -114,7 +114,12 @@ fun CalendarScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item("title") {
-            Text("Calendar", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
+            Column(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
+                Text("Calendar", style = MaterialTheme.typography.headlineLarge)
+                habit?.let {
+                    Text("${it.emoji}  ${it.displayName}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
         item("month") {
             DaymarkCard(contentPadding = 16.dp) {

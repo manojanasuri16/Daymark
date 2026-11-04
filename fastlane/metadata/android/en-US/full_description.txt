@@ -1,0 +1,58 @@
+Daymark is a calm, private streak tracker for anyone working on changing a habit. Every day you mark is a day you made, and a slip never erases what you've built.
+
+Your data stays on your phone. There is no account, no ads, no analytics and no internet permission.
+
+TRACK MORE THAN ONE THING
+• Separate trackers for each habit you're changing, such as alcohol, smoking or doomscrolling
+• Every tracker keeps its own streaks, calendar, insights and achievements
+• Switch between trackers with one tap
+
+TODAY
+• A live streak counter showing days, plus ticking hours, minutes and seconds
+• A progress ring toward your next milestone
+• Your longest streak and total clean days at a glance
+• A gentle daily encouragement
+
+HOME-SCREEN WIDGETS
+• Streak: a live ticking counter
+• Progress Ring: see your next milestone without opening the app
+• Heatmap: the last weeks of clean and slip days
+• Daily Motivation: a short, supportive message
+• Six styles for every widget: Dusk, Dawn, Forest, Midnight, Sunrise and Minimal
+• Each widget can show the tracker you choose
+
+ACHIEVEMENTS
+• 12 milestones, from 24 hours to 5 years
+• Earned against your longest streak, so they are never taken away after a slip
+
+CALENDAR
+• A swipeable month view: clean days in green, slips in red, untracked days in grey
+• Tap any day to see details, or to log or edit a slip
+
+LOG A SLIP, LEARN FROM IT
+• Record the date, time, mood, triggers, situation and notes
+• Edit or delete entries, and undo a delete
+• Slips are information, not judgment
+
+INSIGHTS
+• Streak history and slips per month
+• Common triggers, time-of-day and weekday patterns
+• Mood before a slip and the situations involved
+• A supportive trend summary
+
+PRIVATE BY DESIGN
+• No account, no ads, no analytics
+• No internet permission: the app cannot send your data anywhere
+• Optional app lock with your fingerprint, face or device PIN, handled by Android
+• Optional "hide in recents" blanks the app preview and blocks screenshots
+• Android cloud backup is turned off
+• Backup and restore using a file you export and control
+
+YOUR LOOK
+• Light, dark or system theme
+• Eight accent colors, or Material You colors from your wallpaper
+• Smooth, gentle motion that respects your system animation settings
+
+Daymark is a self-tracking tool. It is not a medical service and is not a substitute for professional help. If you are struggling, please consider reaching out to a doctor, counselor or support service in your area.
+
+Questions or feedback: manojanasuri1@gmail.com
