@@ -111,6 +111,12 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - In Glance 1.1.1, `ColorProvider(@ColorRes)` is a restricted API and lint fails the release on it. Use `dayNight(context, colorRes)` in `Widgets.kt`.
 - Don't read `StateFlow.value` inside a composable (lint error). Use `collectAsStateWithLifecycle()`.
 - `compileSdk 36` with AGP 8.7.3 needs `android.suppressUnsupportedCompileSdk=36` in `gradle.properties`. Upgrading AGP (via Dependabot) lets you remove that line.
+- **Pending toolchain upgrade (noted 2026-11-04):** the latest AndroidX releases (Compose BOM 2026.09, navigation 2.10, Room 2.8…) need **AGP ≥ 9.1 and compileSdk 37**, so Dependabot's androidx group PR fails `checkDebugAarMetadata` on AGP 8.7.3. Do the upgrade as a dedicated change:
+  1. Upgrade AGP to 9.x and Gradle to the version it requires.
+  2. Install `platforms;android-37` and set `compileSdk = 37`.
+  3. Migrate to AGP 9's built-in Kotlin: drop the `kotlin-android` plugin and move `kotlinOptions` to `kotlin { compilerOptions }`.
+  4. Update KSP to a matching version.
+  5. Then take the androidx bumps, run tests and lint, do an emulator smoke test, and release.
 - The Gradle wrapper's `networkTimeout` was raised to 120 s because the default 10 s times out here.
 - Under load the emulator shows "isn't responding" dialogs for System UI or the launcher. That's the emulator, not the app. Wait about 60 s after boot before testing.
 - Debug and release builds have different signatures, so switching between them on a device needs an uninstall (`scripts/emulator.sh` handles it).
