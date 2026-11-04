@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- sun (half disc above horizon) -->
+    <path android:fillColor="#F2B48C"
+        android:pathData="M36,60 A18,18 0 0,1 72,60 Z" />
+    <!-- rays -->
+    <path android:strokeColor="#F2B48C" android:strokeWidth="3.2" android:strokeLineCap="round"
+        android:pathData="M54,32 L54,37 M38.4,38.4 L42,42 M69.6,38.4 L66,42 M30,52 L35,52 M78,52 L73,52" />
+    <!-- horizon -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round"
+        android:pathData="M30,64 L78,64" />
+    <!-- day mark tick -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round"
+        android:pathData="M44,73 L64,73" android:strokeAlpha="0.55" />
+</vector>
