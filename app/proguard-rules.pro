@@ -1,0 +1,4 @@
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class com.daymark.app.** { *** Companion; }
+-keepclasseswithmembers class com.daymark.app.** { kotlinx.serialization.KSerializer serializer(...); }
+-keep,includedescriptorclasses class com.daymark.app.**$$serializer { *; }

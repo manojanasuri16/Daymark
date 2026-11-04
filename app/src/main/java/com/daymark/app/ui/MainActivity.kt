@@ -1,0 +1,250 @@
+package com.daymark.app.ui
+
+import android.os.Bundle
+import android.os.SystemClock
+import android.view.WindowManager
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.daymark.app.data.Settings
+import com.daymark.app.ui.calendar.CalendarScreen
+import com.daymark.app.ui.components.LocalHapticsEnabled
+import com.daymark.app.ui.dashboard.DashboardScreen
+import com.daymark.app.ui.insights.InsightsScreen
+import com.daymark.app.ui.lock.LockScreen
+import com.daymark.app.ui.log.LogScreen
+import com.daymark.app.ui.onboarding.OnboardingScreen
+import com.daymark.app.ui.settings.SettingsScreen
+import com.daymark.app.ui.theme.DaymarkTheme
+import com.daymark.app.ui.theme.Motion
+import kotlinx.coroutines.launch
+
+class MainActivity : FragmentActivity() {
+    private val vm: MainViewModel by viewModels()
+
+    /** Locked until proven otherwise when app lock is on. */
+    private var locked by mutableStateOf(true)
+    private var backgroundedAt = 0L
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
+        super.onCreate(savedInstanceState)
+        splash.setKeepOnScreenCondition { vm.settings.value == null }
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
+        if (savedInstanceState?.getBoolean(KEY_UNLOCKED) == true) locked = false
+
+        // Re-lock after the app has been in the background for a short grace period
+        // (the grace keeps file pickers for backup/restore from forcing a re-unlock).
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) { backgroundedAt = SystemClock.elapsedRealtime() }
+            override fun onStart(owner: LifecycleOwner) {
+                if (backgroundedAt != 0L && SystemClock.elapsedRealtime() - backgroundedAt > LOCK_GRACE_MS) locked = true
+            }
+        })
+
+        setContent {
+            val settings by vm.settings.collectAsStateWithLifecycle()
+            val s = settings ?: return@setContent
+            LaunchedEffect(s.hideInRecents) {
+                if (s.hideInRecents) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            DaymarkTheme(themeMode = s.themeMode, dynamicColor = s.dynamicColor) {
+                CompositionLocalProvider(LocalHapticsEnabled provides s.haptics) {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        val showLock = s.appLock && locked
+                        AnimatedContent(
+                            targetState = when {
+                                showLock -> Gate.LOCKED
+                                !s.onboarded -> Gate.ONBOARDING
+                                else -> Gate.APP
+                            },
+                            transitionSpec = { fadeIn(Motion.standard()) togetherWith fadeOut(Motion.standard()) },
+                            label = "gate",
+                        ) { gate ->
+                            when (gate) {
+                                Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
+                                Gate.ONBOARDING -> OnboardingScreen { name, start -> vm.completeOnboarding(name, start) }
+                                Gate.APP -> DaymarkNav(vm, s)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_UNLOCKED, !locked)
+    }
+
+    private enum class Gate { LOCKED, ONBOARDING, APP }
+
+    companion object {
+        private const val KEY_UNLOCKED = "unlocked"
+        private const val LOCK_GRACE_MS = 20_000L
+    }
+}
+
+private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
+    TODAY("today", "Today", Icons.Rounded.WbSunny),
+    CALENDAR("calendar", "Calendar", Icons.Rounded.CalendarMonth),
+    INSIGHTS("insights", "Insights", Icons.Rounded.Insights),
+    SETTINGS("settings", "Settings", Icons.Rounded.Settings),
+}
+
+private const val LOG_ROUTE = "log?id={id}&day={day}"
+private fun logRoute(id: Long = 0, day: Long? = null) = "log?id=$id&day=${day ?: Long.MIN_VALUE}"
+
+@Composable
+private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
+    val nav = rememberNavController()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val backStack by nav.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    val isTab = Tab.entries.any { it.route == route }
+
+    LaunchedEffect(Unit) { vm.events.collect { snackbar.showSnackbar(it) } }
+
+    fun selectTab(tab: Tab) = nav.navigate(tab.route) {
+        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = isTab,
+                enter = slideInVertically(Motion.standard()) { it } + fadeIn(),
+                exit = slideOutVertically(Motion.standard()) { it } + fadeOut(),
+            ) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = androidx.compose.ui.unit.Dp(0f)) {
+                    Tab.entries.forEach { tab ->
+                        NavigationBarItem(
+                            selected = route == tab.route,
+                            onClick = { selectTab(tab) },
+                            icon = { Icon(tab.icon, null) },
+                            label = { Text(tab.label) },
+                        )
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        NavHost(
+            navController = nav,
+            startDestination = Tab.TODAY.route,
+            // Tabs cross-fade with a hint of scale (no lateral motion between peers).
+            enterTransition = { fadeIn(tween(220, delayMillis = 60)) + scaleIn(Motion.standard(), initialScale = 0.98f) },
+            exitTransition = { fadeOut(tween(120)) },
+            popEnterTransition = { fadeIn(tween(220, delayMillis = 60)) + scaleIn(Motion.standard(), initialScale = 0.98f) },
+            popExitTransition = { fadeOut(tween(120)) },
+        ) {
+            composable(Tab.TODAY.route) {
+                DashboardScreen(
+                    vm, padding,
+                    onLogSlip = { nav.navigate(logRoute()) },
+                    onOpenCalendar = { selectTab(Tab.CALENDAR) },
+                )
+            }
+            composable(Tab.CALENDAR.route) {
+                CalendarScreen(
+                    vm, padding,
+                    onLogForDay = { nav.navigate(logRoute(day = it.toEpochDay())) },
+                    onEdit = { nav.navigate(logRoute(id = it.id)) },
+                )
+            }
+            composable(Tab.INSIGHTS.route) { InsightsScreen(vm, padding) }
+            composable(Tab.SETTINGS.route) { SettingsScreen(vm, padding) }
+            composable(
+                LOG_ROUTE,
+                arguments = listOf(
+                    navArgument("id") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("day") { type = NavType.LongType; defaultValue = Long.MIN_VALUE },
+                ),
+                // A modal task: rises from the bottom, and leaves the way it came.
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                val id = entry.arguments?.getLong("id") ?: 0L
+                val day = entry.arguments?.getLong("day")?.takeIf { it != Long.MIN_VALUE }
+                LogScreen(
+                    vm = vm,
+                    editId = id,
+                    initialDate = day,
+                    onClose = { nav.popBackStack() },
+                    onDeleted = { record ->
+                        nav.popBackStack()
+                        scope.launch {
+                            val r = snackbar.showSnackbar("Entry deleted", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                            if (r == SnackbarResult.ActionPerformed) vm.restoreRelapse(record)
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
