@@ -30,6 +30,12 @@ Every day you mark is a day you made. A slip never erases what you've built.
 
 Download `Daymark-vX.Y.Z.apk` from the [Releases](../../releases) page and open it on your phone. You may need to allow *Install unknown apps* for your browser or file manager. Android 8.0 or newer is required.
 
+## Maintaining
+
+- **[docs/MAINTAINING.md](docs/MAINTAINING.md):** step-by-step guides (ship an update, test on emulator or phone, library updates, key safety).
+- **[CLAUDE.md](CLAUDE.md):** architecture, rules and recipes. Claude Code reads it automatically.
+- **Release:** run `scripts/release.sh X.Y.Z`. GitHub Actions then builds, signs and publishes the release.
+
 ## Google Play
 
 See [docs/PLAY_STORE.md](docs/PLAY_STORE.md) for the publishing checklist. Store assets live in `fastlane/metadata/android/en-US/`, and the privacy policy is in [docs/privacy-policy.md](docs/privacy-policy.md).
