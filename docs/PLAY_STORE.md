@@ -45,9 +45,9 @@ In Play Console, choose **Create app**:
 | Privacy policy | The URL from step 2 |
 | Ads | **No**, the app contains no ads |
 | App access | **All functionality is available without special access** (there is no login) |
-| Content rating | Category **"All other app types"**. Answer honestly: the app refers to alcohol, tobacco and drugs only in a recovery context. It has no violence, no user-to-user communication, no purchases and no location sharing. |
+| Content rating | Category **"All other app types"**. Answer honestly: the app refers to alcohol, tobacco, drugs and compulsive sexual behaviour (e.g. "Porn" as a tracker suggestion) only in a recovery context, with no sexual imagery. It has no violence, no user-to-user communication, no purchases and no location sharing. |
 | Target audience | **18 and over**. This keeps the app out of the Families policy, which suits a recovery app. |
-| Data safety | **No data collected** and **No data shared**. All data is stored only on the device, and the app has no INTERNET permission. Answer "No" to data collection for every data type. |
+| Data safety | **No data collected** and **No data shared**. All data is stored only on the device, and the app has no INTERNET permission. Answer "No" to data collection for every data type. Local notifications, encrypted backups and sharing a milestone through the share sheet don't change this. |
 | Health apps | Category is Health & Fitness, so fill in the health declaration. Select the categories that match self-tracking of habit and behaviour change, and confirm it is **not** a medical device and offers no medical treatment. |
 | Government, financial, news | Not applicable |
 

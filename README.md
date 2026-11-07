@@ -10,20 +10,31 @@ Every day you mark is a day you made. A slip never erases what you've built.
 - **Achievements:** 12 milestones, from 24 hours to 5 years. They're earned against your *longest* streak, so they're never lost after a relapse.
 - **Calendar:** a swipeable month view. Clean days are green, slips are red and untracked days are grey. Tap a day for details, or to log or edit a slip.
 - **Quick slip logging:** date, time, mood (a 5-point scale), triggers (multi-select plus your own), situation and notes. Entries can be edited or deleted, and a delete can be undone.
+- **Urge log:** "Feeling an urge? Ride it out" records a craving you got through without slipping: its strength, triggers and what helped. Your own reasons are shown first.
+- **Journal:** write on any day, with a mood and a gentle daily prompt.
+- **Your reasons:** list why you're doing this. They rotate on the dashboard, appear on the urge screen and, if you choose, on the motivation widget.
+- **Money kept:** add what a habit used to cost per week or month, and see what you've kept.
+- **Cut-down mode:** set a daily limit instead of quitting outright. Only days over the limit count as a slip.
+- **Reminders:** an optional daily check-in and milestone celebrations, as local notifications.
+- **Quick access:** a Quick Settings tile and launcher shortcuts (urge, journal, log).
+- **Share a milestone:** an image drawn on your phone, shared only where you choose.
 - **Insights:** streak history, slips per month, common triggers, time of day and weekday patterns, mood before a slip, situations, and a supportive trend summary.
-- **Home-screen widgets:** four types:
-  - **Streak:** a live ticking counter (an embedded system Chronometer)
+- **Home-screen widgets:** six types:
+  - **Streak:** a live ticking counter (an embedded system Chronometer); "Today 1 of 2" in cut-down mode
   - **Progress ring:** fills toward the next milestone
   - **Heatmap:** your recent weeks of clean and slip days
-  - **Daily motivation:** tap it for another message
+  - **Daily motivation:** your own reasons, or a gentle message; tap for another
+  - **Quick actions:** ride out an urge, journal or log in one tap
+  - **Your progress:** money kept, urges ridden out, clean days and best streak
 
   There are six styles (Dusk, Dawn, Forest, Midnight, Sunrise, Minimal), and each widget can show any tracker. Pick them in the in-app gallery (*Settings → Widgets*) or from the launcher.
 - **Privacy:**
   - There is no INTERNET permission, no account and no analytics.
   - Optional app lock uses biometrics or the device credential.
   - Optional "hide in recents" (FLAG_SECURE) blanks the app preview and blocks screenshots.
+  - **Discreet mode** (on by default): widgets, notifications, the Quick Settings tile and share cards never name what you're tracking.
   - Android auto-backup is disabled.
-- **Backup and restore:** export to, and import from, a JSON file that you control.
+- **Backup and restore:** export to, and import from, a JSON file that you control, optionally protected with a password (AES-256-GCM). Optional automatic daily backups go to a folder you pick, keeping the last 7.
 - **Themes:** light, dark or system, eight accent colours (Dusk indigo by default), or Material You wallpaper colours. Motion uses spring physics, instant press feedback and haptics, and falls back to fades when animations are turned off system-wide.
 
 ## Install
@@ -48,9 +59,10 @@ It's a single module with manual DI. All streak, milestone and insight maths liv
 ```
 app/src/main/java/com/daymark/app/
 ├── domain/   StreakEngine, Milestones, InsightsEngine, Messages (pure, tested)
-├── data/     Room DB, DataStore settings, JSON backup codec, repositories
-├── ui/       Compose screens: dashboard, calendar, log, insights, settings, onboarding, lock
-└── widget/   Glance home-screen widget
+├── data/     Room DB, DataStore settings, JSON backup codec (+ encryption), auto-backup, repositories
+├── notify/   local reminders, Quick Settings tile, deep-link routes
+├── ui/       Compose screens: dashboard, calendar, log, urge, journal, insights, settings, onboarding, lock
+└── widget/   Glance home-screen widgets
 ```
 
 ## Build

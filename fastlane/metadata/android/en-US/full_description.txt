@@ -7,6 +7,15 @@ TRACK MORE THAN ONE THING
 • Every tracker keeps its own streaks, calendar, insights and achievements
 • Switch between trackers with one tap
 
+RIDE OUT URGES
+• "Feeling an urge?" — log a craving you got through, what set it off and what helped
+• Your own reasons, shown right when you need them
+• A journal for any day, with a gentle prompt
+• Money kept: see what you no longer spend
+• Cut-down mode: set a daily limit instead of quitting outright
+• Optional daily check-in and milestone reminders
+• Quick Settings tile and app shortcuts
+
 TODAY
 • A live streak counter showing days, plus ticking hours, minutes and seconds
 • A progress ring toward your next milestone
@@ -17,7 +26,9 @@ HOME-SCREEN WIDGETS
 • Streak: a live ticking counter
 • Progress Ring: see your next milestone without opening the app
 • Heatmap: the last weeks of clean and slip days
-• Daily Motivation: a short, supportive message
+• Daily Motivation: your own reasons or a short, supportive message
+• Quick Actions: ride out an urge, journal or log in one tap
+• Your Progress: money kept, urges ridden out and more
 • Six styles for every widget: Dusk, Dawn, Forest, Midnight, Sunrise and Minimal
 • Each widget can show the tracker you choose
 
@@ -45,8 +56,10 @@ PRIVATE BY DESIGN
 • No internet permission: the app cannot send your data anywhere
 • Optional app lock with your fingerprint, face or device PIN, handled by Android
 • Optional "hide in recents" blanks the app preview and blocks screenshots
+• Discreet mode: widgets and notifications never name what you're tracking
 • Android cloud backup is turned off
-• Backup and restore using a file you export and control
+• Backup and restore using a file you control, optionally password-protected
+• Optional automatic daily backups to a folder you choose
 
 YOUR LOOK
 • Light, dark or system theme

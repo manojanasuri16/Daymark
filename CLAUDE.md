@@ -130,6 +130,10 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
   3. Migrate to AGP 9's built-in Kotlin: drop the `kotlin-android` plugin and move `kotlinOptions` to `kotlin { compilerOptions }`.
   4. Update KSP to a matching version.
   5. Then take the androidx bumps, run tests and lint, do an emulator smoke test, and release.
+- **Glance widgets use `SizeMode.Responsive`** with fixed breakpoints (`sizes` in each widget). `SizeMode.Exact` re-measured on every refresh, so an update pushed while the app was open could leave a widget stuck in its small layout. Bitmaps (ring, heatmap, bar) are drawn at the breakpoint size; use `ContentScale.FillBounds` where they must stretch.
+- In Glance, `ColorFilter.tint` on a drawable **drops the colour's alpha** (tiles came out solid white). For translucent tiles use `background(colorProvider).cornerRadius(…)`.
+- `DaymarkApp` keeps a far-future WorkManager job (`daymark-keep-alive`). Without pending work, WorkManager toggles its receivers, and some launchers then reset every widget to `initialLayout` (`layout/widget_loading.xml`).
+- Emulator: `adb emu kill` can drop recent writes, so run `adb shell sync` first. Widgets pinned from the gallery may land on the **second** home-screen page. When app lock is on, every reopen after 20 s shows BiometricPrompt; type the PIN with `adb shell input text 1234`.
 - The Gradle wrapper's `networkTimeout` was raised to 120 s because the default 10 s times out here.
 - Under load the emulator shows "isn't responding" dialogs for System UI or the launcher. That's the emulator, not the app. Wait about 60 s after boot before testing.
 - Debug and release builds have different signatures, so switching between them on a device needs an uninstall (`scripts/emulator.sh` handles it).
