@@ -38,6 +38,8 @@ data class Settings(
     val autoBackupUri: String = "",
     /** Encrypts automatic backups when not blank. */
     val autoBackupPassword: String = "",
+    /** Include journal photos in exported and automatic backups (bigger files). */
+    val backupPhotos: Boolean = true,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "daymark_settings")
@@ -60,6 +62,7 @@ class SettingsRepository(private val context: Context) {
         val milestoneAlerts = booleanPreferencesKey("milestone_alerts")
         val autoBackupUri = stringPreferencesKey("auto_backup_uri")
         val autoBackupPassword = stringPreferencesKey("auto_backup_password")
+        val backupPhotos = booleanPreferencesKey("backup_photos")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -83,6 +86,7 @@ class SettingsRepository(private val context: Context) {
         milestoneAlerts = this[Keys.milestoneAlerts] ?: false,
         autoBackupUri = this[Keys.autoBackupUri] ?: "",
         autoBackupPassword = this[Keys.autoBackupPassword] ?: "",
+        backupPhotos = this[Keys.backupPhotos] ?: true,
     )
 
     suspend fun completeOnboarding(firstHabitId: Long) = context.dataStore.edit {
@@ -105,6 +109,7 @@ class SettingsRepository(private val context: Context) {
         it[Keys.checkInReminder] = enabled
         it[Keys.checkInMinutes] = minutes.coerceIn(0, 24 * 60 - 1)
     }
+    suspend fun setBackupPhotos(v: Boolean) = context.dataStore.edit { it[Keys.backupPhotos] = v }
     suspend fun setMilestoneAlerts(v: Boolean) = context.dataStore.edit { it[Keys.milestoneAlerts] = v }
     suspend fun setAutoBackup(uri: String, password: String) = context.dataStore.edit {
         it[Keys.autoBackupUri] = uri
@@ -128,6 +133,7 @@ class SettingsRepository(private val context: Context) {
         it[Keys.milestoneAlerts] = s.milestoneAlerts
         it[Keys.autoBackupUri] = s.autoBackupUri
         it[Keys.autoBackupPassword] = s.autoBackupPassword
+        it[Keys.backupPhotos] = s.backupPhotos
     }
 
     suspend fun clear() = context.dataStore.edit { it.clear() }

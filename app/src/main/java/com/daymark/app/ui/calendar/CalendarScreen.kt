@@ -421,11 +421,19 @@ private fun JournalCard(j: JournalEntry, zone: ZoneId, onClick: () -> Unit) {
                 Box(contentAlignment = Alignment.Center) { Text(Options.mood(j.mood)?.emoji ?: "📝", style = MaterialTheme.typography.titleLarge) }
             }
             Spacer(Modifier.width(14.dp))
-            Text("$time · Journal", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text(if (j.photos.isEmpty()) "$time · Journal" else "$time · Journal · ${j.photos.size} ${if (j.photos.size == 1) "photo" else "photos"}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
         }
         if (j.text.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(j.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+        if (j.photos.isNotEmpty()) {
+            var viewing by remember { mutableStateOf<String?>(null) }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                j.photos.forEach { com.daymark.app.ui.components.PhotoThumb(it, 64.dp, onClick = { viewing = it }) }
+            }
+            viewing?.let { com.daymark.app.ui.components.PhotoViewer(it) { viewing = null } }
         }
     }
 }

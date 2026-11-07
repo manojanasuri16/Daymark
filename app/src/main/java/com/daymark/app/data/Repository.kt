@@ -46,6 +46,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
     suspend fun delete(id: Long) = db.withTransaction {
         db.relapseDao().deleteForHabit(id)
         db.urgeDao().deleteForHabit(id)
+        db.journalPhotoDao().deleteForHabit(id) // image files are swept by PhotoStore
         db.journalDao().deleteForHabit(id)
         dao.delete(id)
     }
@@ -61,12 +62,14 @@ class HabitRepository(private val db: DaymarkDatabase) {
         relapses: List<RelapseEntity>,
         urges: List<UrgeEntity> = emptyList(),
         journal: List<JournalEntity> = emptyList(),
+        photos: List<JournalPhotoEntity> = emptyList(),
     ) = db.withTransaction {
         clearAll()
         dao.insertAll(habits)
         db.relapseDao().insertAll(relapses)
         db.urgeDao().insertAll(urges)
         db.journalDao().insertAll(journal)
+        db.journalPhotoDao().insertAll(photos)
     }
 
     suspend fun clear() = db.withTransaction { clearAll() }
@@ -74,6 +77,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
     private suspend fun clearAll() {
         db.relapseDao().clear()
         db.urgeDao().clear()
+        db.journalPhotoDao().clear()
         db.journalDao().clear()
         dao.clear()
     }
@@ -93,16 +97,28 @@ class UrgeRepository(db: DaymarkDatabase) {
     suspend fun delete(record: UrgeRecord) = dao.delete(UrgeEntity.from(record))
 }
 
-class JournalRepository(db: DaymarkDatabase) {
+class JournalRepository(private val db: DaymarkDatabase) {
     private val dao = db.journalDao()
+    private val photoDao = db.journalPhotoDao()
 
-    val entries: Flow<List<JournalEntry>> = dao.observeAll().map { list -> list.map { it.toEntry() } }
+    val entries: Flow<List<JournalEntry>> = kotlinx.coroutines.flow.combine(dao.observeAll(), photoDao.observeAll()) { list, photos ->
+        val byEntry = photos.groupBy({ it.journalId }, { it.fileName })
+        list.map { it.toEntry().copy(photos = byEntry[it.id].orEmpty()) }
+    }
 
     suspend fun allEntities(): List<JournalEntity> = dao.getAll()
+    suspend fun allPhotos(): List<JournalPhotoEntity> = photoDao.getAll()
 
-    suspend fun save(entry: JournalEntry): Long =
-        if (entry.id == 0L) dao.insert(JournalEntity.from(entry))
-        else { dao.update(JournalEntity.from(entry)); entry.id }
+    /** Saves the entry and replaces its photo list. */
+    suspend fun save(entry: JournalEntry): Long = db.withTransaction {
+        val id = if (entry.id == 0L) dao.insert(JournalEntity.from(entry)) else { dao.update(JournalEntity.from(entry)); entry.id }
+        photoDao.deleteForJournal(id)
+        photoDao.insertAll(entry.photos.mapIndexed { i, name -> JournalPhotoEntity(journalId = id, fileName = name, sortOrder = i) })
+        id
+    }
 
-    suspend fun delete(entry: JournalEntry) = dao.delete(JournalEntity.from(entry))
+    suspend fun delete(entry: JournalEntry) = db.withTransaction {
+        photoDao.deleteForJournal(entry.id)
+        dao.delete(JournalEntity.from(entry))
+    }
 }

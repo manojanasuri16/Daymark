@@ -138,8 +138,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun saveUrge(record: UrgeRecord) = viewModelScope.launch { c.urges.save(record) }
     fun deleteUrge(record: UrgeRecord) = viewModelScope.launch { c.urges.delete(record) }
 
-    fun saveJournal(entry: JournalEntry) = viewModelScope.launch { c.journal.save(entry) }
-    fun deleteJournal(entry: JournalEntry) = viewModelScope.launch { c.journal.delete(entry) }
+    fun deleteJournal(entry: JournalEntry) = viewModelScope.launch {
+        c.journal.delete(entry)
+        withContext(Dispatchers.IO) { com.daymark.app.data.PhotoStore.delete(getApplication(), entry.photos) }
+    }
+
+    /** Saves an entry; photos removed while editing are deleted from storage. */
+    fun saveJournal(entry: JournalEntry, removedPhotos: List<String>) = viewModelScope.launch {
+        c.journal.save(entry)
+        withContext(Dispatchers.IO) { com.daymark.app.data.PhotoStore.delete(getApplication(), removedPhotos - entry.photos.toSet()) }
+    }
+
+    fun setBackupPhotos(v: Boolean) = viewModelScope.launch { c.settings.setBackupPhotos(v) }
 
     fun setDiscreet(v: Boolean) = viewModelScope.launch { c.settings.setDiscreet(v) }
     fun setCheckInReminder(enabled: Boolean, minutes: Int) = viewModelScope.launch {
@@ -207,7 +217,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val e = BackupCodec.toEntities(file)
                 val habits = e.habits
                 val relapses = e.relapses
-                c.habits.replaceAll(habits, relapses, e.urges, e.journal)
+                val app = getApplication<Application>()
+                val photoRows = e.journalPhotos.flatMap { (journalId, data) ->
+                    data.mapNotNull { com.daymark.app.data.PhotoStore.fromBase64(app, it) }
+                        .mapIndexed { i, name -> com.daymark.app.data.JournalPhotoEntity(journalId = journalId, fileName = name, sortOrder = i) }
+                }
+                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows)
+                // Old photos aren't referenced any more.
+                com.daymark.app.data.PhotoStore.sweep(app, photoRows.map { it.fileName }.toSet(), now = Long.MAX_VALUE)
                 val current = c.settings.current()
                 c.settings.replaceAll(
                     current.copy(
@@ -251,6 +268,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         c.habits.clear()
         c.settings.clear()
+        com.daymark.app.data.PhotoStore.clearAll(getApplication())
         com.daymark.app.data.AutoBackup.schedule(getApplication(), enabled = false)
         com.daymark.app.notify.Reminders.reschedule(getApplication())
     }
