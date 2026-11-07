@@ -180,6 +180,37 @@ interface HabitDao {
     suspend fun clear()
 }
 
+/** A photo attached to a journal entry. The image itself is a JPEG in private storage (see [PhotoStore]). */
+@Entity(tableName = "journal_photos", indices = [Index("journalId")])
+data class JournalPhotoEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val journalId: Long,
+    val fileName: String,
+    val sortOrder: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Dao
+interface JournalPhotoDao {
+    @Query("SELECT * FROM journal_photos ORDER BY journalId ASC, sortOrder ASC")
+    fun observeAll(): Flow<List<JournalPhotoEntity>>
+
+    @Query("SELECT * FROM journal_photos ORDER BY journalId ASC, sortOrder ASC")
+    suspend fun getAll(): List<JournalPhotoEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<JournalPhotoEntity>)
+
+    @Query("DELETE FROM journal_photos WHERE journalId = :journalId")
+    suspend fun deleteForJournal(journalId: Long)
+
+    @Query("DELETE FROM journal_photos WHERE journalId IN (SELECT id FROM journal WHERE habitId = :habitId)")
+    suspend fun deleteForHabit(habitId: Long)
+
+    @Query("DELETE FROM journal_photos")
+    suspend fun clear()
+}
+
 @Dao
 interface UrgeDao {
     @Query("SELECT * FROM urges ORDER BY timestamp ASC")
@@ -266,15 +297,31 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class], version = 3, exportSchema = true)
+/** v3 → v4: photos on journal entries. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `journal_photos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `journalId` INTEGER NOT NULL, " +
+                "`fileName` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_photos_journalId` ON `journal_photos` (`journalId`)")
+    }
+}
+
+@Database(
+    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class],
+    version = 4,
+    exportSchema = true,
+)
 abstract class DaymarkDatabase : RoomDatabase() {
     abstract fun relapseDao(): RelapseDao
     abstract fun habitDao(): HabitDao
     abstract fun urgeDao(): UrgeDao
     abstract fun journalDao(): JournalDao
+    abstract fun journalPhotoDao(): JournalPhotoDao
 
     companion object {
         fun build(context: Context): DaymarkDatabase =
-            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     }
 }
