@@ -4,7 +4,9 @@ import android.app.Application
 import android.content.Context
 import com.daymark.app.data.DaymarkDatabase
 import com.daymark.app.data.HabitRepository
+import com.daymark.app.data.JournalRepository
 import com.daymark.app.data.RelapseRepository
+import com.daymark.app.data.UrgeRepository
 import com.daymark.app.data.SettingsRepository
 import com.daymark.app.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +22,8 @@ class AppContainer(context: Context) {
     val database: DaymarkDatabase = DaymarkDatabase.build(context)
     val relapses = RelapseRepository(database)
     val habits = HabitRepository(database)
+    val urges = UrgeRepository(database)
+    val journal = JournalRepository(database)
     val settings = SettingsRepository(context)
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
@@ -35,10 +39,13 @@ class DaymarkApp : Application() {
         // Keep home-screen widgets in sync with any data change, wherever it originates.
         container.appScope.launch {
             container.habits.ensureLegacyHabit(container.settings.current())
+            com.daymark.app.data.AutoBackup.schedule(this@DaymarkApp, enabled = container.settings.current().autoBackupUri.isNotEmpty())
             combine(container.habits.habits, container.relapses.relapses) { h, r ->
                 h to r.map { it.habitId to it.timestamp }
             }.distinctUntilChanged().debounce(300).collect {
                 WidgetUpdater.updateAll(this@DaymarkApp)
+                // Milestone timing depends on the latest slip; keep the next alert in step.
+                runCatching { com.daymark.app.notify.Reminders.reschedule(this@DaymarkApp) }
             }
         }
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -27,6 +28,16 @@ data class Settings(
     /** 0 = first tracker. */
     val selectedHabitId: Long = 0L,
     val accent: String = "dusk",
+    /** Keep tracker names out of notifications, the Quick Settings tile and share cards. */
+    val discreet: Boolean = true,
+    val checkInReminder: Boolean = false,
+    /** Minutes after local midnight. */
+    val checkInMinutes: Int = 21 * 60,
+    val milestoneAlerts: Boolean = false,
+    /** Persisted SAF tree URI, or "" when automatic backups are off. */
+    val autoBackupUri: String = "",
+    /** Encrypts automatic backups when not blank. */
+    val autoBackupPassword: String = "",
 )
 
 private val Context.dataStore by preferencesDataStore(name = "daymark_settings")
@@ -43,6 +54,12 @@ class SettingsRepository(private val context: Context) {
         val haptics = booleanPreferencesKey("haptics")
         val selectedHabit = longPreferencesKey("selected_habit")
         val accent = stringPreferencesKey("accent")
+        val discreet = booleanPreferencesKey("discreet")
+        val checkInReminder = booleanPreferencesKey("check_in_reminder")
+        val checkInMinutes = intPreferencesKey("check_in_minutes")
+        val milestoneAlerts = booleanPreferencesKey("milestone_alerts")
+        val autoBackupUri = stringPreferencesKey("auto_backup_uri")
+        val autoBackupPassword = stringPreferencesKey("auto_backup_password")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -60,6 +77,12 @@ class SettingsRepository(private val context: Context) {
         haptics = this[Keys.haptics] ?: true,
         selectedHabitId = this[Keys.selectedHabit] ?: 0L,
         accent = this[Keys.accent] ?: "dusk",
+        discreet = this[Keys.discreet] ?: true,
+        checkInReminder = this[Keys.checkInReminder] ?: false,
+        checkInMinutes = this[Keys.checkInMinutes] ?: (21 * 60),
+        milestoneAlerts = this[Keys.milestoneAlerts] ?: false,
+        autoBackupUri = this[Keys.autoBackupUri] ?: "",
+        autoBackupPassword = this[Keys.autoBackupPassword] ?: "",
     )
 
     suspend fun completeOnboarding(firstHabitId: Long) = context.dataStore.edit {
@@ -77,6 +100,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.appLock] = v }
     suspend fun setHideInRecents(v: Boolean) = context.dataStore.edit { it[Keys.hideInRecents] = v }
     suspend fun setHaptics(v: Boolean) = context.dataStore.edit { it[Keys.haptics] = v }
+    suspend fun setDiscreet(v: Boolean) = context.dataStore.edit { it[Keys.discreet] = v }
+    suspend fun setCheckInReminder(enabled: Boolean, minutes: Int) = context.dataStore.edit {
+        it[Keys.checkInReminder] = enabled
+        it[Keys.checkInMinutes] = minutes.coerceIn(0, 24 * 60 - 1)
+    }
+    suspend fun setMilestoneAlerts(v: Boolean) = context.dataStore.edit { it[Keys.milestoneAlerts] = v }
+    suspend fun setAutoBackup(uri: String, password: String) = context.dataStore.edit {
+        it[Keys.autoBackupUri] = uri
+        it[Keys.autoBackupPassword] = password
+    }
 
     suspend fun replaceAll(s: Settings) = context.dataStore.edit {
         it[Keys.onboarded] = s.onboarded
@@ -89,6 +122,12 @@ class SettingsRepository(private val context: Context) {
         it[Keys.haptics] = s.haptics
         it[Keys.selectedHabit] = s.selectedHabitId
         it[Keys.accent] = s.accent
+        it[Keys.discreet] = s.discreet
+        it[Keys.checkInReminder] = s.checkInReminder
+        it[Keys.checkInMinutes] = s.checkInMinutes
+        it[Keys.milestoneAlerts] = s.milestoneAlerts
+        it[Keys.autoBackupUri] = s.autoBackupUri
+        it[Keys.autoBackupPassword] = s.autoBackupPassword
     }
 
     suspend fun clear() = context.dataStore.edit { it.clear() }

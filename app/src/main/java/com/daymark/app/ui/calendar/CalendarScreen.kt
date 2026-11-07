@@ -54,7 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.domain.DayStatus
 import com.daymark.app.domain.Options
+import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
+import com.daymark.app.domain.UrgeRecord
 import com.daymark.app.domain.StreakEngine
 import com.daymark.app.ui.MainViewModel
 import com.daymark.app.ui.components.DaymarkCard
@@ -81,15 +83,22 @@ fun CalendarScreen(
     contentPadding: PaddingValues,
     onLogForDay: (LocalDate) -> Unit,
     onEdit: (RelapseRecord) -> Unit,
+    onUrgeForDay: (LocalDate) -> Unit = {},
+    onEditUrge: (UrgeRecord) -> Unit = {},
+    onJournalForDay: (LocalDate) -> Unit = {},
+    onEditJournal: (JournalEntry) -> Unit = {},
 ) {
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
     val relapses by vm.relapses.collectAsStateWithLifecycle()
+    val urges by vm.urges.collectAsStateWithLifecycle()
+    val journal by vm.journal.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     val today = LocalDate.now()
     val journeyStart = habit?.startAt ?: System.currentTimeMillis()
-    val earliest = relapses.minOfOrNull { it.timestamp }
+    val slipTimes = remember(relapses, habit) { habit?.slipTimes(relapses.map { it.timestamp }, zone) ?: relapses.map { it.timestamp } }
+    val earliest = slipTimes.minOrNull()
     val startDate = StreakEngine.toDate(earliest?.let { minOf(it, journeyStart) } ?: journeyStart, zone)
-    val relapseDates = remember(relapses) { StreakEngine.relapseDates(relapses.map { it.timestamp }, zone) }
+    val relapseDates = remember(slipTimes) { StreakEngine.relapseDates(slipTimes, zone) }
 
     val firstMonth = YearMonth.from(startDate).let { if (it.isAfter(YearMonth.from(today))) YearMonth.from(today) else it }
     val thisMonth = YearMonth.from(today)
@@ -189,6 +198,10 @@ fun CalendarScreen(
         } else {
             items(dayEntries, key = { it.id }) { r -> EntryCard(r, zone) { onEdit(r) } }
         }
+        val dayUrges = urges.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        val dayJournal = journal.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        items(dayUrges, key = { "u${it.id}" }) { u -> UrgeCard(u, zone) { onEditUrge(u) } }
+        items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
         if (!selected.isAfter(today)) {
             item("logDay") {
                 FilledTonalButton(
@@ -198,7 +211,19 @@ fun CalendarScreen(
                 ) {
                     Icon(Icons.Rounded.Add, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Log a slip on this day")
+                    Text(if (habit?.isReduce == true) "Log a use on this day" else "Log a slip on this day")
+                }
+            }
+            item("moreDay") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onUrgeForDay(selected) },
+                        modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(16.dp),
+                    ) { Text("Urge ridden out") }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onJournalForDay(selected) },
+                        modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(16.dp),
+                    ) { Text("Journal") }
                 }
             }
         }
@@ -360,6 +385,47 @@ private fun EntryCard(r: RelapseRecord, zone: ZoneId, onClick: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             Text(r.notes, style = MaterialTheme.typography.bodyMedium, maxLines = 4,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun UrgeCard(u: UrgeRecord, zone: ZoneId, onClick: () -> Unit) {
+    val time = Instant.ofEpochMilli(u.timestamp).atZone(zone).toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    DaymarkCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = DaymarkTheme.colors.clean.copy(alpha = 0.15f), shape = RoundedCornerShape(12.dp), modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("🛡️", style = MaterialTheme.typography.titleLarge) }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("$time · Urge ridden out", style = MaterialTheme.typography.titleSmall)
+                if (u.triggers.isNotEmpty()) {
+                    Text(u.triggers.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (u.notes.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(u.notes, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun JournalCard(j: JournalEntry, zone: ZoneId, onClick: () -> Unit) {
+    val time = Instant.ofEpochMilli(j.timestamp).atZone(zone).toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    DaymarkCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp), modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text(Options.mood(j.mood)?.emoji ?: "📝", style = MaterialTheme.typography.titleLarge) }
+            }
+            Spacer(Modifier.width(14.dp))
+            Text("$time · Journal", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        }
+        if (j.text.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(j.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
 }

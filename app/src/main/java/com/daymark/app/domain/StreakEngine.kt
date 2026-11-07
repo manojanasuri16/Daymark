@@ -106,6 +106,15 @@ object StreakEngine {
         }
     }
 
+    /**
+     * "Cut down" mode: a day becomes a slip only when it has more than [dailyLimit] entries; the entry that
+     * crosses the limit is the slip moment. [dailyLimit] 0 = quit mode, where every entry is a slip.
+     */
+    fun slipTimestamps(entries: List<Long>, dailyLimit: Int, zone: ZoneId = ZoneId.systemDefault()): List<Long> {
+        if (dailyLimit <= 0) return entries
+        return entries.groupBy { toDate(it, zone) }.values.mapNotNull { day -> day.sorted().getOrNull(dailyLimit) }.sorted()
+    }
+
     fun toDate(epochMillis: Long, zone: ZoneId): LocalDate =
         Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
 }

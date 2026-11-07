@@ -44,7 +44,7 @@ data class WidgetSnapshot(
         /** [habit] null = no tracker yet (not onboarded). [relapses] may include other trackers; they're filtered here. */
         fun from(habit: Habit?, relapses: List<RelapseRecord>, now: Long = System.currentTimeMillis()): WidgetSnapshot {
             val zone = ZoneId.systemDefault()
-            val ts = if (habit == null) emptyList() else relapses.filter { it.habitId == habit.id }.map { it.timestamp }
+            val ts = if (habit == null) emptyList() else habit.slipTimes(relapses.filter { it.habitId == habit.id }.map { it.timestamp }, ZoneId.systemDefault())
             return WidgetSnapshot(
                 onboarded = habit != null,
                 habit = habit?.name.orEmpty(),

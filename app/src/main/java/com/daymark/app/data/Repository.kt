@@ -2,7 +2,9 @@ package com.daymark.app.data
 
 import androidx.room.withTransaction
 import com.daymark.app.domain.Habit
+import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
+import com.daymark.app.domain.UrgeRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -40,9 +42,11 @@ class HabitRepository(private val db: DaymarkDatabase) {
         if (habit.id == 0L) dao.insert(HabitEntity.from(habit.copy(sortOrder = (dao.getAll().maxOfOrNull { it.sortOrder } ?: -1) + 1)))
         else { dao.update(HabitEntity.from(habit)); habit.id }
 
-    /** Deletes the habit and its entries together. */
+    /** Deletes the habit and everything logged against it, together. */
     suspend fun delete(id: Long) = db.withTransaction {
         db.relapseDao().deleteForHabit(id)
+        db.urgeDao().deleteForHabit(id)
+        db.journalDao().deleteForHabit(id)
         dao.delete(id)
     }
 
@@ -52,15 +56,53 @@ class HabitRepository(private val db: DaymarkDatabase) {
         dao.insert(HabitEntity(id = 1, name = settings.habitName, emoji = "🌱", startAt = settings.journeyStart))
     }
 
-    suspend fun replaceAll(habits: List<HabitEntity>, relapses: List<RelapseEntity>) = db.withTransaction {
-        db.relapseDao().clear()
-        dao.clear()
+    suspend fun replaceAll(
+        habits: List<HabitEntity>,
+        relapses: List<RelapseEntity>,
+        urges: List<UrgeEntity> = emptyList(),
+        journal: List<JournalEntity> = emptyList(),
+    ) = db.withTransaction {
+        clearAll()
         dao.insertAll(habits)
         db.relapseDao().insertAll(relapses)
+        db.urgeDao().insertAll(urges)
+        db.journalDao().insertAll(journal)
     }
 
-    suspend fun clear() = db.withTransaction {
+    suspend fun clear() = db.withTransaction { clearAll() }
+
+    private suspend fun clearAll() {
         db.relapseDao().clear()
+        db.urgeDao().clear()
+        db.journalDao().clear()
         dao.clear()
     }
+}
+
+class UrgeRepository(db: DaymarkDatabase) {
+    private val dao = db.urgeDao()
+
+    val urges: Flow<List<UrgeRecord>> = dao.observeAll().map { list -> list.map { it.toRecord() } }
+
+    suspend fun allEntities(): List<UrgeEntity> = dao.getAll()
+
+    suspend fun save(record: UrgeRecord): Long =
+        if (record.id == 0L) dao.insert(UrgeEntity.from(record))
+        else { dao.update(UrgeEntity.from(record)); record.id }
+
+    suspend fun delete(record: UrgeRecord) = dao.delete(UrgeEntity.from(record))
+}
+
+class JournalRepository(db: DaymarkDatabase) {
+    private val dao = db.journalDao()
+
+    val entries: Flow<List<JournalEntry>> = dao.observeAll().map { list -> list.map { it.toEntry() } }
+
+    suspend fun allEntities(): List<JournalEntity> = dao.getAll()
+
+    suspend fun save(entry: JournalEntry): Long =
+        if (entry.id == 0L) dao.insert(JournalEntity.from(entry))
+        else { dao.update(JournalEntity.from(entry)); entry.id }
+
+    suspend fun delete(entry: JournalEntry) = dao.delete(JournalEntity.from(entry))
 }

@@ -36,16 +36,20 @@ Builds are slow on this machine (5–10 min, longer while the emulator runs). Ru
 
 ```
 domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngineTest.kt
-  StreakEngine.kt   spans between events, current/longest streak, total clean days, DayStatus
+  StreakEngine.kt   spans between events, current/longest streak, total clean days, DayStatus, slipTimestamps (cut-down mode)
   Milestones.kt     12 milestones; earned() uses the LONGEST streak (so they're never lost)
-  Insights.kt       RelapseRecord, Habit, InsightsEngine (triggers, months, time of day, trend)
+  Insights.kt       RelapseRecord, Habit (money, dailyLimit, reasons), UrgeRecord, JournalEntry, InsightsEngine (+ urges)
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
   Options.kt        triggers, situations, moods, tracker emojis and suggestions
 data/
-  Database.kt       Room v2: HabitEntity (habits), RelapseEntity (relapses, habitId), DAOs, MIGRATION_1_2
-  Repository.kt     RelapseRepository, HabitRepository (ensureLegacyHabit = v1→v2 data upgrade)
-  SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock…)
-  Backup.kt         JSON export/import, format v2 (habits with nested relapses); still reads v1
+  Database.kt       Room v3: habits, relapses, urges, journal; DAOs; MIGRATION_1_2, MIGRATION_2_3
+  Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
+  SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
+  Backup.kt         JSON export/import, format v3 (habits with nested relapses/urges/journal); reads v1+v2. BackupCrypto = optional AES-GCM password
+  AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
+notify/
+  Reminders.kt      Routes (deep-link extras), local check-in + milestone notifications (WorkManager), discreet text
+  UrgeTileService.kt  Quick Settings tile → urge screen
 DaymarkApp.kt       AppContainer (manual DI), runs the legacy migration, refreshes widgets on data change
 ui/
   MainActivity.kt   FragmentActivity (needed by BiometricPrompt). Gate: LOCKED/ONBOARDING/LOADING/APP. NavHost + routes
@@ -53,7 +57,8 @@ ui/
   theme/Theme.kt    Accent enum (8 accents, light+dark, hero gradient), neutral surfaces, DaymarkColors (clean/relapse/untracked)
   theme/Motion.kt   Apple-style springs: standard (no bounce), bouncy (only after gestures), press, gentle
   components/       DaymarkCard, pressScale, RollingNumber, ProgressRing, GrowingBar, Haptics…
-  dashboard/ calendar/ log/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
+  dashboard/ calendar/ log/ urge/ journal/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
+  share/ShareCard.kt  milestone image rendered on-device, shared via FileProvider + share sheet
 widget/
   Widgets.kt        DaymarkGlanceWidget base + StreakWidget, RingWidget, HeatmapWidget, QuoteWidget, receivers
   WidgetStyle.kt    WidgetStyle enum (6 styles → res/values/widget_colors.xml), WidgetKind, WidgetDefaults
@@ -71,6 +76,9 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - A **streak** runs from the tracker's `startAt` (or an earlier logged slip) to the next slip. Future-dated slips are ignored. **Total clean days** is the number of calendar days from start to today with no slip.
 - **Day status** colours: `CLEAN` is green, `RELAPSE` is red, `UNTRACKED` is grey. These are semantic colours and don't follow the accent.
 - **Widgets:** the live h:m:s is a system `Chronometer` embedded via `AndroidRemoteViews` (`res/layout/widget_chronometer.xml`), so it ticks without waking the app. Each widget stores its style and tracker in Glance state (`StyleKey`, `HabitKey`). A new widget claims `WidgetDefaults` on its first render.
+- **Cut-down mode:** a tracker with `dailyLimit > 0` counts every entry as a "use"; only the entry that takes a day over the limit is a slip. Always pass entry times through `Habit.slipTimes()` before `StreakEngine`.
+- **Discreet mode** (on by default): notifications, the QS tile and share cards never name a tracker. Keep it that way for any new surface outside the app.
+- **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
 
 ## Recipes

@@ -22,9 +22,46 @@ data class Habit(
     val emoji: String,
     val startAt: Long,
     val sortOrder: Int = 0,
+    /** What the habit used to cost, per [spendPeriodDays] days. 0 = not tracked. */
+    val spendAmount: Double = 0.0,
+    val spendPeriodDays: Int = 7,
+    /** 0 = quit completely. N > 0 = "cut down": a day only counts as a slip once more than N uses are logged. */
+    val dailyLimit: Int = 0,
+    /** The user's own reasons, shown back to them on hard days. */
+    val reasons: List<String> = emptyList(),
 ) {
     val displayName: String get() = name.ifBlank { "My journey" }
+    val isReduce: Boolean get() = dailyLimit > 0
+    val tracksMoney: Boolean get() = spendAmount > 0.0 && spendPeriodDays > 0
+
+    /** Money not spent over [cleanDays] days. */
+    fun moneyKept(cleanDays: Int): Double = if (tracksMoney) cleanDays * spendAmount / spendPeriodDays else 0.0
+
+    /** Entry timestamps that actually end a streak, given this tracker's mode. */
+    fun slipTimes(entries: List<Long>, zone: ZoneId = ZoneId.systemDefault()): List<Long> =
+        StreakEngine.slipTimestamps(entries, dailyLimit, zone)
 }
+
+/** A craving the user rode out without slipping. */
+data class UrgeRecord(
+    val id: Long,
+    val habitId: Long,
+    val timestamp: Long,
+    /** 1..5, 0 = not recorded. */
+    val intensity: Int = 0,
+    val triggers: List<String> = emptyList(),
+    val notes: String = "",
+)
+
+/** A free-form journal entry, on any day. */
+data class JournalEntry(
+    val id: Long,
+    val habitId: Long,
+    val timestamp: Long,
+    /** 1..5, 0 = not recorded. */
+    val mood: Int = 0,
+    val text: String = "",
+)
 
 data class InsightsData(
     val monthlyRelapses: List<Pair<YearMonth, Int>>,
@@ -37,6 +74,11 @@ data class InsightsData(
     val streakHistoryDays: List<Double>,
     val averageStreakDays: Double,
     val trend: Trend,
+    val urgeCount: Int = 0,
+    val urgesLast30: Int = 0,
+    val urgeTriggers: List<Pair<String, Int>> = emptyList(),
+    val urgeTimeOfDay: List<Pair<String, Int>> = emptyList(),
+    val averageUrgeIntensity: Double? = null,
 ) {
     enum class Trend { IMPROVING, STEADY, HARDER, NOT_ENOUGH_DATA }
 }
@@ -57,6 +99,7 @@ object InsightsEngine {
         now: Long,
         zone: ZoneId = ZoneId.systemDefault(),
         months: Int = 6,
+        urges: List<UrgeRecord> = emptyList(),
     ): InsightsData {
         val thisMonth = YearMonth.from(Instant.ofEpochMilli(now).atZone(zone))
         val byMonth = records.groupingBy { YearMonth.from(Instant.ofEpochMilli(it.timestamp).atZone(zone)) }.eachCount()
@@ -88,6 +131,13 @@ object InsightsEngine {
             streakHistoryDays = history,
             averageStreakDays = if (history.isEmpty()) 0.0 else history.average(),
             trend = trend(completed),
+            urgeCount = urges.count { it.timestamp <= now },
+            urgesLast30 = urges.count { it.timestamp in (now - 30 * StreakStats.DAY_MS)..now },
+            urgeTriggers = urges.flatMap { it.triggers }.filter { it.isNotBlank() }
+                .groupingBy { it }.eachCount().toList().sortedByDescending { it.second },
+            urgeTimeOfDay = urges.groupingBy { bucket(Instant.ofEpochMilli(it.timestamp).atZone(zone).hour) }.eachCount()
+                .let { m -> timeBuckets.map { it to (m[it] ?: 0) } },
+            averageUrgeIntensity = urges.filter { it.intensity in 1..5 }.takeIf { it.isNotEmpty() }?.map { it.intensity }?.average(),
         )
     }
 

@@ -17,7 +17,9 @@ import androidx.room.Update
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.daymark.app.domain.Habit
+import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
+import com.daymark.app.domain.UrgeRecord
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "habits")
@@ -29,11 +31,61 @@ data class HabitEntity(
     val startAt: Long,
     val sortOrder: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0") val spendAmount: Double = 0.0,
+    @ColumnInfo(defaultValue = "7") val spendPeriodDays: Int = 7,
+    @ColumnInfo(defaultValue = "0") val dailyLimit: Int = 0,
+    /** Newline-separated. */
+    @ColumnInfo(defaultValue = "''") val reasons: String = "",
 ) {
-    fun toHabit() = Habit(id, name, emoji, startAt, sortOrder)
+    fun toHabit() = Habit(
+        id, name, emoji, startAt, sortOrder,
+        spendAmount = spendAmount, spendPeriodDays = spendPeriodDays, dailyLimit = dailyLimit,
+        reasons = reasons.split("\n").map { it.trim() }.filter { it.isNotEmpty() },
+    )
 
     companion object {
-        fun from(h: Habit) = HabitEntity(id = h.id, name = h.name, emoji = h.emoji, startAt = h.startAt, sortOrder = h.sortOrder)
+        fun from(h: Habit) = HabitEntity(
+            id = h.id, name = h.name, emoji = h.emoji, startAt = h.startAt, sortOrder = h.sortOrder,
+            spendAmount = h.spendAmount, spendPeriodDays = h.spendPeriodDays.coerceAtLeast(1), dailyLimit = h.dailyLimit.coerceAtLeast(0),
+            reasons = h.reasons.map { it.replace("\n", " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n"),
+        )
+    }
+}
+
+@Entity(tableName = "urges", indices = [Index("habitId")])
+data class UrgeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val habitId: Long,
+    val timestamp: Long,
+    val intensity: Int = 0,
+    /** Pipe-separated trigger labels. */
+    val triggers: String = "",
+    val notes: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    fun toRecord() = UrgeRecord(id, habitId, timestamp, intensity, triggers.split(RelapseEntity.SEP).filter { it.isNotBlank() }, notes)
+
+    companion object {
+        fun from(u: UrgeRecord) = UrgeEntity(
+            id = u.id, habitId = u.habitId, timestamp = u.timestamp, intensity = u.intensity.coerceIn(0, 5),
+            triggers = u.triggers.joinToString(RelapseEntity.SEP) { it.replace(RelapseEntity.SEP, "/") }, notes = u.notes,
+        )
+    }
+}
+
+@Entity(tableName = "journal", indices = [Index("habitId")])
+data class JournalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val habitId: Long,
+    val timestamp: Long,
+    val mood: Int = 0,
+    val text: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    fun toEntry() = JournalEntry(id, habitId, timestamp, mood, text)
+
+    companion object {
+        fun from(j: JournalEntry) = JournalEntity(id = j.id, habitId = j.habitId, timestamp = j.timestamp, mood = j.mood.coerceIn(0, 5), text = j.text)
     }
 }
 
@@ -128,6 +180,60 @@ interface HabitDao {
     suspend fun clear()
 }
 
+@Dao
+interface UrgeDao {
+    @Query("SELECT * FROM urges ORDER BY timestamp ASC")
+    fun observeAll(): Flow<List<UrgeEntity>>
+
+    @Query("SELECT * FROM urges ORDER BY timestamp ASC")
+    suspend fun getAll(): List<UrgeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: UrgeEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<UrgeEntity>)
+
+    @Update
+    suspend fun update(entity: UrgeEntity)
+
+    @Delete
+    suspend fun delete(entity: UrgeEntity)
+
+    @Query("DELETE FROM urges")
+    suspend fun clear()
+
+    @Query("DELETE FROM urges WHERE habitId = :habitId")
+    suspend fun deleteForHabit(habitId: Long)
+}
+
+@Dao
+interface JournalDao {
+    @Query("SELECT * FROM journal ORDER BY timestamp ASC")
+    fun observeAll(): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal ORDER BY timestamp ASC")
+    suspend fun getAll(): List<JournalEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: JournalEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<JournalEntity>)
+
+    @Update
+    suspend fun update(entity: JournalEntity)
+
+    @Delete
+    suspend fun delete(entity: JournalEntity)
+
+    @Query("DELETE FROM journal")
+    suspend fun clear()
+
+    @Query("DELETE FROM journal WHERE habitId = :habitId")
+    suspend fun deleteForHabit(habitId: Long)
+}
+
 /** v1 → v2: multiple trackers. Existing entries belong to tracker #1 (created from v1 settings at startup). */
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -140,13 +246,35 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [RelapseEntity::class, HabitEntity::class], version = 2, exportSchema = true)
+/** v2 → v3: money kept, "cut down" mode and reasons on trackers; urge log and journal tables. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `spendAmount` REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `spendPeriodDays` INTEGER NOT NULL DEFAULT 7")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `dailyLimit` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reasons` TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `urges` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitId` INTEGER NOT NULL, " +
+                "`timestamp` INTEGER NOT NULL, `intensity` INTEGER NOT NULL, `triggers` TEXT NOT NULL, `notes` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_urges_habitId` ON `urges` (`habitId`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `journal` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitId` INTEGER NOT NULL, " +
+                "`timestamp` INTEGER NOT NULL, `mood` INTEGER NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_habitId` ON `journal` (`habitId`)")
+    }
+}
+
+@Database(entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class], version = 3, exportSchema = true)
 abstract class DaymarkDatabase : RoomDatabase() {
     abstract fun relapseDao(): RelapseDao
     abstract fun habitDao(): HabitDao
+    abstract fun urgeDao(): UrgeDao
+    abstract fun journalDao(): JournalDao
 
     companion object {
         fun build(context: Context): DaymarkDatabase =
-            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2).build()
+            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }

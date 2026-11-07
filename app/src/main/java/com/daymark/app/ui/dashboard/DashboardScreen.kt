@@ -44,6 +44,9 @@ import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
@@ -96,6 +99,8 @@ fun DashboardScreen(
     vm: MainViewModel,
     contentPadding: PaddingValues,
     onLogSlip: () -> Unit,
+    onUrge: () -> Unit,
+    onJournal: () -> Unit,
     onOpenCalendar: () -> Unit,
     onAddHabit: () -> Unit,
     onEditHabit: (Habit) -> Unit,
@@ -104,7 +109,12 @@ fun DashboardScreen(
     val overview by vm.overview.collectAsStateWithLifecycle()
     val stats by vm.stats.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
+    val urges by vm.urges.collectAsStateWithLifecycle()
+    val entries by vm.relapses.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val habit = selected?.name.orEmpty()
+    val reduce = selected?.isReduce == true
     val haptics = rememberHaptics()
     val chipsState = rememberLazyListState()
     // Keep the selected tracker's chip in view when switching or when trackers are added/removed.
@@ -132,7 +142,11 @@ fun DashboardScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     AnimatedText(
-                        if (habit.isBlank()) "Your journey" else "Free from $habit",
+                        when {
+                            habit.isBlank() -> "Your journey"
+                            reduce -> "Cutting down: $habit"
+                            else -> "Free from $habit"
+                        },
                         MaterialTheme.typography.headlineLarge,
                     )
                 }
@@ -158,7 +172,59 @@ fun DashboardScreen(
             }
         }
         item("hero") { HeroCard(stats) }
-        item("celebrate") { MilestoneBanner(stats) }
+        if (reduce) {
+            item("today") {
+                val zone = ZoneId.systemDefault()
+                val used = entries.count { Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() == today }
+                val limit = selected?.dailyLimit ?: 0
+                DaymarkCard(contentPadding = 16.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Today", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "$used of $limit",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = if (used > limit) DaymarkTheme.colors.relapse else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            when {
+                                used > limit -> "Over today's limit. Tomorrow is a fresh page."
+                                used == limit -> "At your limit for today."
+                                else -> "Within your limit. Nice."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1.4f),
+                        )
+                    }
+                }
+            }
+        }
+        item("celebrate") {
+            MilestoneBanner(stats) { m ->
+                val s = settings ?: return@MilestoneBanner
+                val label = if (s.discreet) null else selected?.displayName
+                com.daymark.app.ui.share.ShareCard.share(
+                    context,
+                    com.daymark.app.ui.share.ShareCard.render(stats.currentDays, m.title, m.subtitle, label, com.daymark.app.ui.theme.Accent.of(s.accent)),
+                )
+            }
+        }
+        item("actions") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionCard(
+                    Icons.Rounded.Shield, "Feeling an urge?", "Ride it out",
+                    MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer,
+                    Modifier.weight(1f), onUrge,
+                )
+                ActionCard(
+                    Icons.Rounded.EditNote, "Journal", "How's today?",
+                    MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.colorScheme.onSurface,
+                    Modifier.weight(1f), onJournal,
+                )
+            }
+        }
         item("stats") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile(
@@ -170,13 +236,35 @@ fun DashboardScreen(
                 )
                 StatTile(
                     value = Format.days(stats.totalCleanDays.toLong()),
-                    label = "Total clean days",
+                    label = if (reduce) "Days within limit" else "Total clean days",
                     icon = Icons.Rounded.Eco,
                     tint = DaymarkTheme.colors.clean,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
+        item("stats2") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val h = selected
+                if (h != null && h.tracksMoney) {
+                    StatTile(
+                        value = Format.money(h.moneyKept(stats.totalCleanDays)),
+                        label = "Money kept",
+                        icon = Icons.Rounded.Savings,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                StatTile(
+                    value = urges.size.toString(),
+                    label = if (urges.size == 1) "Urge ridden out" else "Urges ridden out",
+                    icon = Icons.Rounded.Shield,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        item("reasons") { ReasonsCard(selected?.reasons.orEmpty(), today) { selected?.let(onEditHabit) } }
         item("quote") {
             DaymarkCard(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)) {
                 Row(verticalAlignment = Alignment.Top) {
@@ -202,7 +290,7 @@ fun DashboardScreen(
         }
         item("ach") { AchievementsRow(stats) }
         item("journey") { JourneyCard(stats, onOpenCalendar) }
-        item("slip") { SlipCard(onLogSlip) }
+        item("slip") { SlipCard(reduce, onLogSlip) }
     }
 }
 
@@ -272,7 +360,7 @@ private fun HeroCard(stats: StreakStats) {
 }
 
 @Composable
-private fun MilestoneBanner(stats: StreakStats) {
+private fun MilestoneBanner(stats: StreakStats, onShare: (Milestone) -> Unit) {
     val hit = Milestones.all.lastOrNull { it.days.toLong() == stats.currentDays }
     AnimatedVisibility(
         visible = hit != null,
@@ -284,11 +372,14 @@ private fun MilestoneBanner(stats: StreakStats) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.secondary)
                     Spacer(Modifier.width(12.dp))
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text("You reached ${hit.title}", style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer)
                         Text(hit.subtitle, style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
+                    }
+                    IconButton(onClick = { onShare(hit) }) {
+                        Icon(Icons.Rounded.Share, "Share milestone", tint = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }
@@ -468,19 +559,76 @@ private fun JourneyCard(stats: StreakStats, onOpenCalendar: () -> Unit) {
 }
 
 @Composable
-private fun SlipCard(onLogSlip: () -> Unit) {
+private fun SlipCard(reduce: Boolean, onLogSlip: () -> Unit) {
     DaymarkCard(onClick = onLogSlip, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.EditNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Had a slip?", style = MaterialTheme.typography.titleMedium)
+                Text(if (reduce) "Log a use" else "Had a slip?", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Log it privately. Your history and achievements stay with you.",
+                    if (reduce) "Counting honestly is how cutting down works. Only days over your limit end a streak."
+                    else "Log it privately. Your history and achievements stay with you.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ActionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    color: Color,
+    content: Color,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    DaymarkCard(modifier = modifier, onClick = { haptics.tick(); onClick() }, color = color, contentPadding = 16.dp) {
+        Icon(icon, null, tint = content)
+        Spacer(Modifier.height(10.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = content, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.75f))
+    }
+}
+
+/** The user's own reasons — one per day, tap to see the next. */
+@Composable
+private fun ReasonsCard(reasons: List<String>, today: LocalDate, onAdd: () -> Unit) {
+    if (reasons.isEmpty()) {
+        DaymarkCard(onClick = onAdd, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.FormatQuote, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Why are you doing this?", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Write down your reasons. They'll be here when an urge hits.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        return
+    }
+    var offset by rememberSaveable { mutableStateOf(0) }
+    val i = (((today.toEpochDay() + offset) % reasons.size).toInt() + reasons.size) % reasons.size
+    DaymarkCard(onClick = { offset++ }, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)) {
+        Text("Your reason", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(6.dp))
+        AnimatedText(
+            reasons[i],
+            MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        if (reasons.size > 1) {
+            Text("${i + 1} of ${reasons.size} · tap for the next", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f), modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
