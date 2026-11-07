@@ -1,6 +1,11 @@
 package com.daymark.app
 
 import com.daymark.app.data.BackupCodec
+import com.daymark.app.data.BackupCrypto
+import com.daymark.app.data.JournalEntity
+import com.daymark.app.data.UrgeEntity
+import com.daymark.app.data.WrongPasswordException
+import com.daymark.app.domain.Habit
 import com.daymark.app.data.HabitEntity
 import com.daymark.app.data.InvalidBackupException
 import com.daymark.app.data.RelapseEntity
@@ -154,5 +159,75 @@ class StreakEngineTest {
     @Test fun `daily message is stable`() {
         val d = LocalDate.of(2026, 5, 5)
         assertEquals(Messages.forDate(d), Messages.forDate(d))
+    }
+
+    @Test fun `cut down mode only counts days over the limit as slips`() {
+        val entries = listOf(at(2026, 1, 2, 9), at(2026, 1, 2, 20), at(2026, 1, 3, 10), at(2026, 1, 3, 15), at(2026, 1, 3, 22))
+        // Limit 2 a day: Jan 2 (2 uses) is fine, Jan 3 goes over on its third use.
+        assertEquals(listOf(at(2026, 1, 3, 22)), StreakEngine.slipTimestamps(entries, 2, zone))
+        // Quit mode: every entry is a slip.
+        assertEquals(entries, StreakEngine.slipTimestamps(entries, 0, zone))
+        val stats = StreakEngine.compute(at(2026, 1, 1), StreakEngine.slipTimestamps(entries, 2, zone), at(2026, 1, 5), zone)
+        assertEquals(1, stats.relapseCount)
+        assertEquals(4, stats.totalCleanDays) // Jan 1, 2, 4, 5
+    }
+
+    @Test fun `money kept scales with clean days`() {
+        val h = Habit(1, "x", "🌱", 0, spendAmount = 700.0, spendPeriodDays = 7)
+        assertEquals(3000.0, h.moneyKept(30), 0.001)
+        assertEquals(0.0, h.copy(spendAmount = 0.0).moneyKept(30), 0.001)
+    }
+
+    @Test fun `v3 backup keeps money, limit, reasons, urges and journal`() {
+        val habits = listOf(
+            HabitEntity.from(Habit(4, "Escorts", "🕊️", at(2026, 1, 1), spendAmount = 5000.0, spendPeriodDays = 30, reasons = listOf("My family", "My savings"))),
+            HabitEntity.from(Habit(8, "Porn", "📵", at(2026, 1, 5), dailyLimit = 1)),
+        )
+        val urges = listOf(UrgeEntity(habitId = 4, timestamp = at(2026, 1, 9), intensity = 4, triggers = "Payday|Late night", notes = "walked"))
+        val journal = listOf(JournalEntity(habitId = 8, timestamp = at(2026, 1, 10), mood = 4, text = "Better day"))
+        val file = BackupCodec.decode(BackupCodec.encode(Settings(), habits, emptyList(), urges, journal, now = at(2026, 2, 1)))
+        val e = BackupCodec.toEntities(file)
+        val escorts = e.habits[0].toHabit()
+        assertEquals(5000.0, escorts.spendAmount, 0.001)
+        assertEquals(30, escorts.spendPeriodDays)
+        assertEquals(listOf("My family", "My savings"), escorts.reasons)
+        assertEquals(1, e.habits[1].toHabit().dailyLimit)
+        assertEquals(listOf("Payday", "Late night"), e.urges.single().toRecord().triggers)
+        assertEquals(escorts.id, e.urges.single().habitId)
+        assertEquals("Better day", e.journal.single().text)
+        assertEquals(e.habits[1].id, e.journal.single().habitId)
+    }
+
+    @Test fun `v2 backup decodes with v3 defaults`() {
+        val v2 = """{"app":"daymark","version":2,"exportedAt":1,"habits":[{"name":"Vaping","emoji":"🌱","startAt":${at(2026, 1, 1)},"relapses":[]}]}"""
+        val h = BackupCodec.toEntities(BackupCodec.decode(v2)).habits.single().toHabit()
+        assertEquals(0, h.dailyLimit)
+        assertFalse(h.tracksMoney)
+        assertTrue(h.reasons.isEmpty())
+    }
+
+    @Test fun `encrypted backup round trip`() {
+        val plain = BackupCodec.encode(Settings(), listOf(HabitEntity(id = 1, name = "A", emoji = "🌱", startAt = at(2026, 1, 1))), emptyList())
+        val sealed = BackupCrypto.encrypt(plain, "correct horse")
+        assertTrue(BackupCrypto.isEncrypted(sealed))
+        assertFalse(BackupCrypto.isEncrypted(plain))
+        assertFalse(sealed.contains("\"A\""))
+        assertEquals(plain, BackupCrypto.decrypt(sealed, "correct horse"))
+    }
+
+    @Test(expected = WrongPasswordException::class)
+    fun `encrypted backup rejects wrong password`() {
+        BackupCrypto.decrypt(BackupCrypto.encrypt("{}", "one"), "two")
+    }
+
+    @Test fun `insights count urges`() {
+        val urges = listOf(
+            com.daymark.app.domain.UrgeRecord(1, 1, at(2026, 1, 3, 23), 4, listOf("Late night")),
+            com.daymark.app.domain.UrgeRecord(2, 1, at(2026, 1, 4, 23), 2, listOf("Late night", "Payday")),
+        )
+        val d = InsightsEngine.compute(emptyList(), emptyList(), at(2026, 1, 10), zone, urges = urges)
+        assertEquals(2, d.urgeCount)
+        assertEquals("Late night" to 2, d.urgeTriggers.first())
+        assertEquals(3.0, d.averageUrgeIntensity!!, 0.001)
     }
 }

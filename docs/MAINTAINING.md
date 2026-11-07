@@ -88,6 +88,8 @@ This is the riskiest kind of change, because a mistake can wipe users' history. 
 - Write a database **migration**. The exact steps are in `CLAUDE.md` → Recipes → "Add a field to a table".
 - Keep backups working: older backup files must still restore.
 - Test by installing the **old** release, adding data, then installing the new build over it. Confirm everything is still there.
+  - An easy way to get the old build: `git worktree add /tmp/old main`, then build it there.
+  - To inspect the database on the emulator, copy **all three** files (`daymark.db`, `daymark.db-wal`, `daymark.db-shm`) with `adb exec-out run-as com.daymark.app cat databases/<file>`, then open them with `sqlite3`. `PRAGMA user_version` is the schema version.
 
 ## Signing key: keep it safe
 

@@ -27,10 +27,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Schedule
@@ -66,7 +69,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daymark.app.domain.Habit
@@ -104,6 +109,11 @@ fun HabitEditorScreen(
     var startedEarlier by rememberSaveable { mutableStateOf(existing != null) }
     var start by rememberSaveable { mutableLongStateOf(existing?.startAt ?: System.currentTimeMillis()) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var dailyLimit by rememberSaveable { mutableStateOf(existing?.dailyLimit ?: 0) }
+    var spend by rememberSaveable { mutableStateOf(existing?.spendAmount?.takeIf { it > 0 }?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: "") }
+    var spendPeriod by rememberSaveable { mutableStateOf(existing?.spendPeriodDays ?: 7) }
+    // Newline-joined so it survives process death.
+    var reasons by rememberSaveable { mutableStateOf(existing?.reasons.orEmpty().joinToString("\n")) }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -134,6 +144,9 @@ fun HabitEditorScreen(
                 start = start, onStart = { start = it },
                 isNew = existing == null,
             )
+            GoalFields(dailyLimit) { dailyLimit = it }
+            MoneyFields(spend, { spend = it }, spendPeriod, { spendPeriod = it })
+            ReasonsFields(reasons.split("\n").filter { it.isNotBlank() }) { reasons = it.joinToString("\n") }
             Spacer(Modifier.height(4.dp))
         }
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -141,7 +154,15 @@ fun HabitEditorScreen(
                 onClick = {
                     haptics.confirm()
                     val startAt = if (existing == null && !startedEarlier) System.currentTimeMillis() else minOf(start, System.currentTimeMillis())
-                    onSave((existing ?: Habit(0, "", emoji, startAt)).copy(name = name.trim(), emoji = emoji, startAt = startAt))
+                    onSave(
+                        (existing ?: Habit(0, "", emoji, startAt)).copy(
+                            name = name.trim(), emoji = emoji, startAt = startAt,
+                            dailyLimit = dailyLimit,
+                            spendAmount = spend.replace(",", "").toDoubleOrNull()?.coerceIn(0.0, 1e9) ?: 0.0,
+                            spendPeriodDays = spendPeriod,
+                            reasons = reasons.split("\n").map { it.trim() }.filter { it.isNotEmpty() },
+                        ),
+                    )
                 },
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp).height(56.dp),
                 shape = RoundedCornerShape(18.dp),
@@ -290,4 +311,92 @@ private fun EmojiChoice(emoji: String, selected: Boolean, onClick: () -> Unit) {
         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier.size(52.dp).graphicsLayer { scaleX = scale; scaleY = scale }.pressScale(src, 0.9f).clickable(src, null, onClick = onClick),
     ) { Box(contentAlignment = Alignment.Center) { Text(emoji, fontSize = 24.sp) } }
+}
+
+@Composable
+private fun GoalFields(dailyLimit: Int, onChange: (Int) -> Unit) {
+    val haptics = rememberHaptics()
+    Column {
+        Text("Your goal", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(10.dp))
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(dailyLimit == 0, { haptics.tick(); onChange(0) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Quit completely") }
+            SegmentedButton(dailyLimit > 0, { haptics.tick(); if (dailyLimit == 0) onChange(1) }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("Cut down") }
+        }
+        AnimatedVisibility(dailyLimit > 0, enter = fadeIn() + expandVertically(Motion.standard()), exit = fadeOut() + shrinkVertically(Motion.standard())) {
+            Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Up to ${dailyLimit.coerceAtLeast(1)} a day", style = MaterialTheme.typography.titleSmall)
+                    Text("A day only counts as a slip when you go over.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { haptics.tick(); onChange((dailyLimit - 1).coerceAtLeast(1)) }, enabled = dailyLimit > 1) {
+                    Icon(Icons.Rounded.Remove, "Fewer")
+                }
+                IconButton(onClick = { haptics.tick(); onChange((dailyLimit + 1).coerceAtMost(20)) }) { Icon(Icons.Rounded.Add, "More") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoneyFields(amount: String, onAmount: (String) -> Unit, periodDays: Int, onPeriod: (Int) -> Unit) {
+    Column {
+        Text("What did it cost you?", style = MaterialTheme.typography.titleMedium)
+        Text("Optional. Daymark shows the money you keep.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { v -> onAmount(v.filter { it.isDigit() || it == '.' }.take(10)) },
+                modifier = Modifier.weight(1f), singleLine = true,
+                placeholder = { Text("0") },
+                prefix = { Text(com.daymark.app.domain.Format.currencySymbol()) },
+                shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+            Spacer(Modifier.width(12.dp))
+            SingleChoiceSegmentedButtonRow(Modifier.weight(1.1f)) {
+                SegmentedButton(periodDays == 7, { onPeriod(7) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("/ week") }
+                SegmentedButton(periodDays == 30, { onPeriod(30) }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("/ month") }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReasonsFields(reasons: List<String>, onChange: (List<String>) -> Unit) {
+    var draft by rememberSaveable { mutableStateOf("") }
+    val add = {
+        val t = draft.replace("\n", " ").trim().take(120)
+        if (t.isNotEmpty() && reasons.size < 12) onChange(reasons + t)
+        draft = ""
+    }
+    Column {
+        Text("Your reasons", style = MaterialTheme.typography.titleMedium)
+        Text("Why this matters to you. Shown on hard days and when an urge hits.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        reasons.forEachIndexed { i, r ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("•", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(r, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = { onChange(reasons.filterIndexed { j, _ -> j != i }) }) {
+                    Icon(Icons.Rounded.Close, "Remove reason", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+        OutlinedTextField(
+            value = draft, onValueChange = { draft = it.take(120) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            placeholder = { Text("e.g. I want to be present for my family") },
+            shape = RoundedCornerShape(16.dp),
+            trailingIcon = { IconButton(onClick = add, enabled = draft.isNotBlank()) { Icon(Icons.Rounded.Add, "Add reason") } },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { add() }),
+        )
+    }
 }

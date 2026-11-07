@@ -63,7 +63,12 @@ fun WidgetGalleryScreen(vm: MainViewModel, onBack: () -> Unit, onMessage: (Strin
     val haptics = rememberHaptics()
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
     val relapses by vm.allRelapses.collectAsStateWithLifecycle()
-    val snap = remember(habit, relapses) { habit?.let { WidgetSnapshot.from(it, relapses) } }
+    val urges by vm.allUrges.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val discreet = settings?.discreet ?: true
+    val snap = remember(habit, relapses, urges, discreet) {
+        habit?.let { WidgetSnapshot.from(it, relapses, urges = urges, discreet = discreet) }
+    }
     var styleId by rememberSaveable { mutableStateOf(WidgetStyle.DEFAULT.id) }
     val style = WidgetStyle.of(styleId)
     val manager = remember { AppWidgetManager.getInstance(context) }

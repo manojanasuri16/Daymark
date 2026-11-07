@@ -15,6 +15,7 @@ import com.daymark.app.domain.Messages
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.StreakEngine
 import com.daymark.app.domain.StreakStats
+import com.daymark.app.domain.UrgeRecord
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit
 /** Everything a widget needs to render, computed once per composition. */
 data class WidgetSnapshot(
     val onboarded: Boolean,
+    /** Tracker name to show on the home screen — blank in discreet mode. */
     val habit: String,
     val stats: StreakStats,
     val now: Long,
@@ -31,7 +33,22 @@ data class WidgetSnapshot(
     private val earliestRelapse: Long?,
     private val zone: ZoneId,
     val emoji: String = "",
+    /** The full tracker (money, cut-down limit, reasons), or null before onboarding. */
+    val tracker: Habit? = null,
+    val discreet: Boolean = false,
+    /** Entries logged today — "uses" in cut-down mode. */
+    val todayUses: Int = 0,
+    val urgeCount: Int = 0,
+    val urgesLast30: Int = 0,
 ) {
+    val isReduce: Boolean get() = tracker?.isReduce == true
+    val dailyLimit: Int get() = tracker?.dailyLimit ?: 0
+    val moneyKept: Double get() = tracker?.moneyKept(stats.totalCleanDays) ?: 0.0
+    val tracksMoney: Boolean get() = tracker?.tracksMoney == true
+
+    /** The user's own reasons — only ever shown on the home screen when discreet mode is off. */
+    val visibleReasons: List<String> get() = if (discreet) emptyList() else tracker?.reasons.orEmpty()
+
     val message: String get() = Messages.forDate(today)
 
     /** Millis elapsed in the current streak-day — the part the live chronometer shows. */
@@ -42,12 +59,21 @@ data class WidgetSnapshot(
 
     companion object {
         /** [habit] null = no tracker yet (not onboarded). [relapses] may include other trackers; they're filtered here. */
-        fun from(habit: Habit?, relapses: List<RelapseRecord>, now: Long = System.currentTimeMillis()): WidgetSnapshot {
+        fun from(
+            habit: Habit?,
+            relapses: List<RelapseRecord>,
+            now: Long = System.currentTimeMillis(),
+            urges: List<UrgeRecord> = emptyList(),
+            discreet: Boolean = false,
+        ): WidgetSnapshot {
             val zone = ZoneId.systemDefault()
-            val ts = if (habit == null) emptyList() else relapses.filter { it.habitId == habit.id }.map { it.timestamp }
+            val entries = if (habit == null) emptyList() else relapses.filter { it.habitId == habit.id }.map { it.timestamp }
+            val ts = habit?.slipTimes(entries, zone) ?: emptyList()
+            val today = StreakEngine.toDate(now, zone)
+            val mine = if (habit == null) emptyList() else urges.filter { it.habitId == habit.id && it.timestamp <= now }
             return WidgetSnapshot(
                 onboarded = habit != null,
-                habit = habit?.name.orEmpty(),
+                habit = if (discreet) "" else habit?.name.orEmpty(),
                 stats = if (habit != null) StreakEngine.compute(habit.startAt, ts, now, zone) else StreakStats.EMPTY,
                 now = now,
                 today = StreakEngine.toDate(now, zone),
@@ -56,6 +82,11 @@ data class WidgetSnapshot(
                 earliestRelapse = ts.minOrNull(),
                 zone = zone,
                 emoji = habit?.emoji.orEmpty(),
+                tracker = habit,
+                discreet = discreet,
+                todayUses = entries.count { StreakEngine.toDate(it, zone) == today },
+                urgeCount = mine.size,
+                urgesLast30 = mine.count { it.timestamp >= now - 30 * StreakStats.DAY_MS },
             )
         }
 
@@ -74,6 +105,8 @@ object WidgetUpdater {
         runCatching { RingWidget().updateAll(app) }
         runCatching { HeatmapWidget().updateAll(app) }
         runCatching { QuoteWidget().updateAll(app) }
+        runCatching { ActionsWidget().updateAll(app) }
+        runCatching { StatsWidget().updateAll(app) }
         runCatching { scheduleNext(app) }
     }
 

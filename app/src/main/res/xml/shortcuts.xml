@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press launcher shortcuts. Labels are deliberately neutral. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="urge"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_urge"
+        android:shortcutShortLabel="@string/shortcut_urge_short"
+        android:shortcutLongLabel="@string/shortcut_urge_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.daymark.app"
+            android:targetClass="com.daymark.app.ui.MainActivity">
+            <extra android:name="com.daymark.app.ROUTE" android:value="urge" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="journal"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_journal"
+        android:shortcutShortLabel="@string/shortcut_journal_short"
+        android:shortcutLongLabel="@string/shortcut_journal_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.daymark.app"
+            android:targetClass="com.daymark.app.ui.MainActivity">
+            <extra android:name="com.daymark.app.ROUTE" android:value="journal" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="slip"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_slip"
+        android:shortcutShortLabel="@string/shortcut_slip_short"
+        android:shortcutLongLabel="@string/shortcut_slip_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.daymark.app"
+            android:targetClass="com.daymark.app.ui.MainActivity">
+            <extra android:name="com.daymark.app.ROUTE" android:value="slip" />
+        </intent>
+    </shortcut>
+</shortcuts>

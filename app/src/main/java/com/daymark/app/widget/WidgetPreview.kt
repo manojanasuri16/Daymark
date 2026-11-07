@@ -51,11 +51,12 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
     val millis = snap?.stats?.currentMillis ?: (12 * 86_400_000L + 15_000_000L)
     val clock = (millis % 86_400_000L).let { "%d:%02d:%02d".format(it / 3_600_000, (it / 60_000) % 60, (it / 1000) % 60) }
     val habit = snap?.habit.orEmpty()
-    val message = snap?.message ?: Messages.motivational.first()
+    val reasons = snap?.visibleReasons.orEmpty()
+    val message = reasons.firstOrNull() ?: snap?.message ?: Messages.motivational.first()
     val next = Milestones.next(days)
     val progress = Milestones.progress(millis)
 
-    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; else -> 2f }
+    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; WidgetKind.ACTIONS -> 3f; WidgetKind.STATS -> 1.45f; else -> 2f }
     Box(
         modifier
             .aspectRatio(aspect)
@@ -65,7 +66,10 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
     ) {
         when (kind) {
             WidgetKind.STREAK -> Column(Modifier.fillMaxSize().padding(16.dp)) {
-                Text(if (habit.isBlank()) "DAYMARK" else "FREE FROM ${habit.uppercase()}", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(
+                    if (habit.isBlank()) "DAYMARK" else if (snap?.isReduce == true) "CUTTING DOWN: ${habit.uppercase()}" else "FREE FROM ${habit.uppercase()}",
+                    color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                )
                 Spacer(Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("$days", color = text, fontSize = 44.sp, fontWeight = FontWeight.Bold, lineHeight = 44.sp)
@@ -74,7 +78,7 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                 }
                 Text(clock, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
-                Text(message, color = text, fontSize = 12.sp, maxLines = 1)
+                Text(if (snap?.isReduce == true) todayLine(snap) else message, color = text, fontSize = 12.sp, maxLines = 1)
                 Spacer(Modifier.height(8.dp))
                 Canvas(Modifier.fillMaxWidth().height(5.dp)) {
                     val r = CornerRadius(size.height / 2)
@@ -129,11 +133,57 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                 }
             }
             WidgetKind.QUOTE -> Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                Text("✦  TODAY'S REMINDER", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                Text(if (reasons.isEmpty()) "✦  TODAY'S REMINDER" else "✦  YOUR REASON", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 Text(message, color = text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 3, lineHeight = 21.sp)
                 Row {
                     Text("Day $days", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     if (habit.isNotBlank()) Text("  ·  free from ${habit.lowercase()}", color = soft, fontSize = 11.sp, maxLines = 1)
+                }
+            }
+            WidgetKind.ACTIONS -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    Triple(com.daymark.app.R.drawable.ic_w_shield, "Urge?", true),
+                    Triple(com.daymark.app.R.drawable.ic_w_journal, "Journal", false),
+                    Triple(com.daymark.app.R.drawable.ic_w_add, "Log", false),
+                ).forEach { (icon, label, strong) ->
+                    Column(
+                        Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(18.dp))
+                            .background(if (strong) track else colorResource(style.untracked)),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(icon), null, tint = text, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(label, color = text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            WidgetKind.STATS -> Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "${snap?.emoji?.let { "$it  " } ?: ""}${if (habit.isBlank()) "DAYMARK" else habit.uppercase()}",
+                    color = text, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(colorResource(style.untracked)).padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+                val items = buildList {
+                    if (snap == null || snap.tracksMoney) add(Triple(com.daymark.app.R.drawable.ic_w_wallet, if (snap == null) Format.money(4200.0) else Format.money(snap.moneyKept), "kept"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_shield, "${snap?.urgeCount ?: 9}", "urges ridden out"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_leaf, "${snap?.stats?.totalCleanDays ?: 40}", "clean days"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_trophy, "${snap?.stats?.longestDays ?: 21}d", "best streak"))
+                }.take(4)
+                items.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (icon, v, l) ->
+                            Column(
+                                Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(18.dp)).background(colorResource(style.untracked))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(icon), null, tint = accent, modifier = Modifier.size(14.dp))
+                                Text(v, color = text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(l, color = soft, fontSize = 10.sp, maxLines = 1)
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -49,6 +49,12 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Masks
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
@@ -117,9 +123,36 @@ fun SettingsScreen(
         ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
+    var exportPassword by remember { mutableStateOf("") }
+    var askExportPassword by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) vm.exportBackup(uri)
+        if (uri != null) vm.exportBackup(uri, exportPassword)
+        exportPassword = ""
     }
+    val pendingImport by vm.pendingEncryptedImport.collectAsStateWithLifecycle()
+
+    var pickedFolder by remember { mutableStateOf<android.net.Uri?>(null) }
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) pickedFolder = uri
+    }
+    var confirmAutoOff by remember { mutableStateOf(false) }
+
+    // Notification permission (Android 13+). The toggle that asked is applied once granted.
+    var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) afterPermission?.invoke()
+        afterPermission = null
+    }
+    fun withNotificationPermission(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            afterPermission = action
+            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else action()
+    }
+    var showCheckInTime by remember { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importBackup(uri)
     }
@@ -217,10 +250,39 @@ fun SettingsScreen(
             }
         }
 
-        item { SectionHeader("Home screen") }
+        item { SectionHeader("Reminders") }
+        item {
+            Group {
+                val time = LocalTime.of(settings.checkInMinutes / 60, settings.checkInMinutes % 60)
+                    .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+                SwitchRow(Icons.Rounded.NotificationsActive, "Daily check-in", if (settings.checkInReminder) "Every day at $time" else "A gentle nudge to reflect", settings.checkInReminder) { on ->
+                    if (on) withNotificationPermission { vm.setCheckInReminder(true, settings.checkInMinutes) }
+                    else vm.setCheckInReminder(false, settings.checkInMinutes)
+                }
+                if (settings.checkInReminder) {
+                    Divider()
+                    SettingRow(Icons.Rounded.Schedule, "Reminder time", time, onClick = { showCheckInTime = true })
+                }
+                Divider()
+                SwitchRow(Icons.Rounded.Celebration, "Milestone celebrations", "A notification when you reach a new milestone", settings.milestoneAlerts) { on ->
+                    if (on) withNotificationPermission { vm.setMilestoneAlerts(true) } else vm.setMilestoneAlerts(false)
+                }
+            }
+        }
+
+        item { SectionHeader("Home screen & quick access") }
         item {
             Group {
                 SettingRow(Icons.Rounded.Widgets, "Widgets", "Streak, progress ring, heatmap and daily motivation — five styles", onClick = onOpenWidgets)
+                Divider()
+                SettingRow(
+                    Icons.Rounded.Shield, "Quick Settings tile",
+                    if (Build.VERSION.SDK_INT >= 33) "Add a \"Daymark\" tile to ride out an urge in one tap"
+                    else "Edit your Quick Settings panel and drag in the \"Daymark\" tile",
+                    onClick = if (Build.VERSION.SDK_INT >= 33) ({ requestTile(context) }) else null,
+                )
+                Divider()
+                SettingRow(Icons.Rounded.TouchApp, "App shortcuts", "Long-press the Daymark icon: urge, journal or log an entry", onClick = null)
             }
         }
 
@@ -236,6 +298,12 @@ fun SettingsScreen(
                 SwitchRow(Icons.Rounded.VisibilityOff, "Hide in recent apps", "Blank the app preview and block screenshots", settings.hideInRecents) {
                     vm.setHideInRecents(it)
                 }
+                Divider()
+                SwitchRow(
+                    Icons.Rounded.Masks, "Discreet mode",
+                    "Widgets, notifications and share cards never name what you're tracking",
+                    settings.discreet,
+                ) { vm.setDiscreet(it) }
             }
         }
         item {
@@ -254,12 +322,19 @@ fun SettingsScreen(
         item {
             Group {
                 SettingRow(Icons.Rounded.Backup, "Export backup", "Save your history as a file you control", onClick = {
-                    exportLauncher.launch("daymark-backup-${LocalDate.now()}.json")
+                    askExportPassword = true
                 })
                 Divider()
                 SettingRow(Icons.Rounded.Restore, "Restore from backup", "Replace current data with a backup file", onClick = {
                     confirmRestore = true
                 })
+                Divider()
+                SettingRow(
+                    Icons.Rounded.FolderOpen, "Automatic backups",
+                    if (settings.autoBackupUri.isEmpty()) "Off · save a daily copy to a folder you choose"
+                    else "On · daily, keeps the last 7" + if (settings.autoBackupPassword.isNotEmpty()) " · password-protected" else "",
+                    onClick = { if (settings.autoBackupUri.isEmpty()) folderLauncher.launch(null) else confirmAutoOff = true },
+                )
             }
         }
 
@@ -287,6 +362,62 @@ fun SettingsScreen(
                 }
             },
             dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (askExportPassword) {
+        PasswordDialog(
+            title = "Protect this backup?",
+            body = "Add a password to encrypt the file, or leave it blank for a plain backup. There's no way to recover a forgotten password.",
+            confirm = "Continue",
+            allowBlank = true,
+            onDismiss = { askExportPassword = false },
+        ) { pw ->
+            askExportPassword = false
+            exportPassword = pw
+            exportLauncher.launch("daymark-backup-${LocalDate.now()}.json")
+        }
+    }
+
+    pendingImport?.let { uri ->
+        PasswordDialog(
+            title = "Password-protected backup",
+            body = "Enter the password you used when you made this backup.",
+            confirm = "Restore",
+            allowBlank = false,
+            onDismiss = { vm.cancelEncryptedImport() },
+        ) { pw -> vm.importBackup(uri, pw) }
+    }
+
+    pickedFolder?.let { folder ->
+        PasswordDialog(
+            title = "Automatic backups",
+            body = "Daymark will save a copy here every day and keep the last 7. Add a password to encrypt them (recommended if the folder syncs to a cloud), or leave blank.",
+            confirm = "Turn on",
+            allowBlank = true,
+            onDismiss = { pickedFolder = null },
+        ) { pw -> pickedFolder = null; vm.setAutoBackup(folder, pw) }
+    }
+
+    if (confirmAutoOff) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoOff = false },
+            title = { Text("Turn off automatic backups?") },
+            text = { Text("Backups already saved in the folder are kept.") },
+            confirmButton = { TextButton(onClick = { confirmAutoOff = false; vm.setAutoBackup(null, "") }) { Text("Turn off") } },
+            dismissButton = { TextButton(onClick = { confirmAutoOff = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showCheckInTime) {
+        val state = rememberTimePickerState(settings.checkInMinutes / 60, settings.checkInMinutes % 60)
+        AlertDialog(
+            onDismissRequest = { showCheckInTime = false },
+            text = { TimePicker(state) },
+            confirmButton = {
+                TextButton(onClick = { showCheckInTime = false; vm.setCheckInReminder(true, state.hour * 60 + state.minute) }) { Text("Done") }
+            },
+            dismissButton = { TextButton(onClick = { showCheckInTime = false }) { Text("Cancel") } },
         )
     }
 
@@ -384,4 +515,57 @@ private fun SwitchRow(
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = { haptics.tick(); onChange(it) }, enabled = enabled)
     }
+}
+
+@Composable
+private fun PasswordDialog(
+    title: String,
+    body: String,
+    confirm: String,
+    allowBlank: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var pw by remember { mutableStateOf("") }
+    var pw2 by remember { mutableStateOf("") }
+    val needsRepeat = allowBlank && pw.isNotEmpty()
+    val ok = (allowBlank || pw.isNotEmpty()) && (!needsRepeat || pw == pw2)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(body)
+                OutlinedTextField(
+                    value = pw, onValueChange = { pw = it.take(128) }, singleLine = true,
+                    label = { Text(if (allowBlank) "Password (optional)" else "Password") },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                )
+                if (needsRepeat) {
+                    OutlinedTextField(
+                        value = pw2, onValueChange = { pw2 = it.take(128) }, singleLine = true,
+                        label = { Text("Repeat password") },
+                        isError = pw2.isNotEmpty() && pw2 != pw,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(pw) }, enabled = ok) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Android 13+: ask the system to add the Daymark tile to Quick Settings. */
+private fun requestTile(context: android.content.Context) {
+    if (Build.VERSION.SDK_INT < 33) return
+    val sbm = context.getSystemService(android.app.StatusBarManager::class.java) ?: return
+    sbm.requestAddTileService(
+        android.content.ComponentName(context, com.daymark.app.notify.UrgeTileService::class.java),
+        "Daymark",
+        android.graphics.drawable.Icon.createWithResource(context, com.daymark.app.R.drawable.ic_notification),
+        context.mainExecutor,
+    ) { }
 }

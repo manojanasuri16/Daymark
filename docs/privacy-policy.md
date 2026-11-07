@@ -1,6 +1,6 @@
 # Daymark Privacy Policy
 
-**Effective date: 2026-11-04**
+**Effective date: 2026-11-08**
 
 Daymark is a private, offline-first habit recovery and streak tracking app. This policy explains, plainly, what the app does and does not do with your information.
 
@@ -14,11 +14,19 @@ None. Daymark has no account system, no analytics, no advertising and no crash-r
 
 ## Data stored on your device
 
-The information you enter (streak start, slip logs, moods, triggers, situations, notes and app settings) is stored locally on your device only. It is not sent anywhere.
+The information you enter (trackers, slip logs, urges you rode out, journal entries, your reasons, cost estimates, moods, triggers, situations, notes and app settings) is stored locally on your device only. It is not sent anywhere.
 
 ## No internet access
 
 Daymark does not request the Android INTERNET permission. The app is technically unable to send data over the network.
+
+## Notifications
+
+If you turn on reminders, Daymark asks for Android's notification permission and shows local notifications (a daily check-in and milestone celebrations). They are scheduled on your device; nothing is sent to a server. By default ("discreet mode") notifications, widgets, the Quick Settings tile and share images never name what you are tracking.
+
+## Sharing
+
+If you share a milestone, Daymark draws the image on your device and hands it to the app you pick in Android's share sheet. Daymark itself sends nothing; what happens next is up to the app you chose.
 
 ## Biometric and device-credential unlock
 
@@ -26,7 +34,7 @@ Daymark offers an optional app lock. Unlocking is handled entirely by the Androi
 
 ## Backups
 
-You can export your data to a file and import it later. A backup is created only when you choose to export it, and you decide where it is saved and who can access it. Daymark does not upload backups. Android cloud backup (auto-backup) is disabled for the app, so your data is not copied to Google Drive or other cloud services by the system on our behalf.
+You can export your data to a file and import it later, optionally protected with a password (the file is then encrypted with AES-256-GCM; the password is never stored with it). If you turn on automatic backups, Daymark saves a copy once a day into a folder you pick and keeps the last seven; if you set a password for them, it is stored only on your device so the app can encrypt each copy. You decide where backups are saved and who can access them. Daymark does not upload backups, though a folder you choose may itself be synced by another app. Android cloud backup (auto-backup) is disabled for the app, so your data is not copied to Google Drive or other cloud services by the system on our behalf.
 
 ## Deleting your data
 

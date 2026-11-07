@@ -19,6 +19,11 @@ object Messages {
         "Notice how far you've come.",
         "You don't have to be perfect. Just keep going.",
         "This moment is temporary. You are not alone.",
+        "An urge is a wave. You don't have to ride it to the shore.",
+        "Shame keeps habits alive. Kindness helps them fade.",
+        "Change the setting, change the urge: step outside, move, call someone.",
+        "Every urge you ride out rewires your brain a little.",
+        "What you're building is worth more than a moment's relief.",
     )
 
     /** Stable for a whole day so the widget and dashboard agree. */

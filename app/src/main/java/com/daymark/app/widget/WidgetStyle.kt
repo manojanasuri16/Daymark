@@ -67,7 +67,9 @@ enum class WidgetKind(val title: String, val blurb: String) {
     STREAK("Streak", "Live counter with a daily message"),
     RING("Progress ring", "Fills toward your next milestone"),
     HEATMAP("Heatmap", "Your recent weeks at a glance"),
-    QUOTE("Daily motivation", "A gentle message — tap for another"),
+    QUOTE("Daily motivation", "A gentle message, or your own reasons — tap for another"),
+    ACTIONS("Quick actions", "Ride out an urge or journal in one tap"),
+    STATS("Your progress", "Money kept, urges ridden out and more"),
 }
 
 /** Style that newly placed widgets of a kind adopt (set from the in-app gallery right before pinning). */

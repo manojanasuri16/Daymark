@@ -8,7 +8,7 @@ Daymark is a private, offline-first Android app for habit recovery and streak tr
 - **Tone:** say "slip", never "failure" or "relapse" in UI copy. Keep it supportive and non-judgmental. A slip must never erase history: longest streak, total clean days and achievements are always kept.
 - **Never change** `applicationId` (`com.daymark.app`) or the signing key. Doing so would break every user's updates.
 - **`versionCode` must go up with every release** (`scripts/release.sh` does this).
-- **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver` and `QuoteWidgetReceiver` are referenced by widgets already placed on users' home screens.
+- **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver`, `QuoteWidgetReceiver`, `ActionsWidgetReceiver` and `StatsWidgetReceiver` are referenced by widgets already placed on users' home screens.
 - **Every Room schema change needs a migration** (see "Recipes"). Losing user data is the worst possible bug.
 
 ## Git
@@ -36,16 +36,20 @@ Builds are slow on this machine (5–10 min, longer while the emulator runs). Ru
 
 ```
 domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngineTest.kt
-  StreakEngine.kt   spans between events, current/longest streak, total clean days, DayStatus
+  StreakEngine.kt   spans between events, current/longest streak, total clean days, DayStatus, slipTimestamps (cut-down mode)
   Milestones.kt     12 milestones; earned() uses the LONGEST streak (so they're never lost)
-  Insights.kt       RelapseRecord, Habit, InsightsEngine (triggers, months, time of day, trend)
+  Insights.kt       RelapseRecord, Habit (money, dailyLimit, reasons), UrgeRecord, JournalEntry, InsightsEngine (+ urges)
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
   Options.kt        triggers, situations, moods, tracker emojis and suggestions
 data/
-  Database.kt       Room v2: HabitEntity (habits), RelapseEntity (relapses, habitId), DAOs, MIGRATION_1_2
-  Repository.kt     RelapseRepository, HabitRepository (ensureLegacyHabit = v1→v2 data upgrade)
-  SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock…)
-  Backup.kt         JSON export/import, format v2 (habits with nested relapses); still reads v1
+  Database.kt       Room v3: habits, relapses, urges, journal; DAOs; MIGRATION_1_2, MIGRATION_2_3
+  Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
+  SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
+  Backup.kt         JSON export/import, format v3 (habits with nested relapses/urges/journal); reads v1+v2. BackupCrypto = optional AES-GCM password
+  AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
+notify/
+  Reminders.kt      Routes (deep-link extras), local check-in + milestone notifications (WorkManager), discreet text
+  UrgeTileService.kt  Quick Settings tile → urge screen
 DaymarkApp.kt       AppContainer (manual DI), runs the legacy migration, refreshes widgets on data change
 ui/
   MainActivity.kt   FragmentActivity (needed by BiometricPrompt). Gate: LOCKED/ONBOARDING/LOADING/APP. NavHost + routes
@@ -53,9 +57,10 @@ ui/
   theme/Theme.kt    Accent enum (8 accents, light+dark, hero gradient), neutral surfaces, DaymarkColors (clean/relapse/untracked)
   theme/Motion.kt   Apple-style springs: standard (no bounce), bouncy (only after gestures), press, gentle
   components/       DaymarkCard, pressScale, RollingNumber, ProgressRing, GrowingBar, Haptics…
-  dashboard/ calendar/ log/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
+  dashboard/ calendar/ log/ urge/ journal/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
+  share/ShareCard.kt  milestone image rendered on-device, shared via FileProvider + share sheet
 widget/
-  Widgets.kt        DaymarkGlanceWidget base + StreakWidget, RingWidget, HeatmapWidget, QuoteWidget, receivers
+  Widgets.kt        DaymarkGlanceWidget base + Streak, Ring, Heatmap, Quote (shows reasons when not discreet), Actions (urge/journal/log), Stats; receivers
   WidgetStyle.kt    WidgetStyle enum (6 styles → res/values/widget_colors.xml), WidgetKind, WidgetDefaults
   WidgetData.kt     WidgetSnapshot (per-tracker data), WidgetUpdater + WorkManager refresh at the next day boundary
   WidgetArt.kt      bitmaps Glance can't draw: ring, heatmap, progress bar
@@ -71,6 +76,9 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - A **streak** runs from the tracker's `startAt` (or an earlier logged slip) to the next slip. Future-dated slips are ignored. **Total clean days** is the number of calendar days from start to today with no slip.
 - **Day status** colours: `CLEAN` is green, `RELAPSE` is red, `UNTRACKED` is grey. These are semantic colours and don't follow the accent.
 - **Widgets:** the live h:m:s is a system `Chronometer` embedded via `AndroidRemoteViews` (`res/layout/widget_chronometer.xml`), so it ticks without waking the app. Each widget stores its style and tracker in Glance state (`StyleKey`, `HabitKey`). A new widget claims `WidgetDefaults` on its first render.
+- **Cut-down mode:** a tracker with `dailyLimit > 0` counts every entry as a "use"; only the entry that takes a day over the limit is a slip. Always pass entry times through `Habit.slipTimes()` before `StreakEngine`.
+- **Discreet mode** (on by default): widgets, notifications, the QS tile and share cards never name a tracker (`WidgetSnapshot.habit` is blank, reasons hidden). Keep it that way for any new surface outside the app.
+- **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
 
 ## Recipes
@@ -122,6 +130,10 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
   3. Migrate to AGP 9's built-in Kotlin: drop the `kotlin-android` plugin and move `kotlinOptions` to `kotlin { compilerOptions }`.
   4. Update KSP to a matching version.
   5. Then take the androidx bumps, run tests and lint, do an emulator smoke test, and release.
+- **Glance widgets use `SizeMode.Responsive`** with fixed breakpoints (`sizes` in each widget). `SizeMode.Exact` re-measured on every refresh, so an update pushed while the app was open could leave a widget stuck in its small layout. Bitmaps (ring, heatmap, bar) are drawn at the breakpoint size; use `ContentScale.FillBounds` where they must stretch.
+- In Glance, `ColorFilter.tint` on a drawable **drops the colour's alpha** (tiles came out solid white). For translucent tiles use `background(colorProvider).cornerRadius(…)`.
+- `DaymarkApp` keeps a far-future WorkManager job (`daymark-keep-alive`). Without pending work, WorkManager toggles its receivers, and some launchers then reset every widget to `initialLayout` (`layout/widget_loading.xml`).
+- Emulator: `adb emu kill` can drop recent writes, so run `adb shell sync` first. Widgets pinned from the gallery may land on the **second** home-screen page. When app lock is on, every reopen after 20 s shows BiometricPrompt; type the PIN with `adb shell input text 1234`.
 - The Gradle wrapper's `networkTimeout` was raised to 120 s because the default 10 s times out here.
 - Under load the emulator shows "isn't responding" dialogs for System UI or the launcher. That's the emulator, not the app. Wait about 60 s after boot before testing.
 - Debug and release builds have different signatures, so switching between them on a device needs an uninstall (`scripts/emulator.sh` handles it).

@@ -20,4 +20,11 @@ object Format {
         days >= 10 -> "%.0f".format(days)
         else -> "%.1f".format(days)
     }
+
+    /** Whole-unit amount in the device's currency, e.g. "₹42,000". */
+    fun money(amount: Double): String = runCatching {
+        java.text.NumberFormat.getCurrencyInstance().apply { maximumFractionDigits = 0 }.format(amount)
+    }.getOrElse { "%,.0f".format(amount) }
+
+    fun currencySymbol(): String = runCatching { java.util.Currency.getInstance(java.util.Locale.getDefault()).symbol }.getOrDefault("")
 }

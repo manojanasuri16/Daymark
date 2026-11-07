@@ -89,6 +89,7 @@ class WidgetConfigActivity : ComponentActivity() {
                     habits = habits.orEmpty(),
                     initialHabitId = initialHabit,
                     relapses = relapses,
+                    discreet = settings0.discreet,
                     onCancel = { finish() },
                     onDone = { style, habitId ->
                         scope.launch {
@@ -114,6 +115,7 @@ fun StylePicker(
     habits: List<Habit>,
     initialHabitId: Long,
     relapses: List<RelapseRecord>,
+    discreet: Boolean = true,
     onCancel: () -> Unit,
     onDone: (WidgetStyle, Long?) -> Unit,
     confirmLabel: String = "Done",
@@ -121,7 +123,7 @@ fun StylePicker(
     var style by remember { mutableStateOf(initial) }
     var habitId by remember { mutableStateOf(initialHabitId) }
     val habit = habits.firstOrNull { it.id == habitId } ?: habits.firstOrNull()
-    val snap = habit?.let { WidgetSnapshot.from(it, relapses) }
+    val snap = habit?.let { WidgetSnapshot.from(it, relapses, discreet = discreet) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
         Column(
             Modifier.safeDrawingPadding().padding(24.dp),

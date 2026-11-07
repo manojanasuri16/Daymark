@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Daymark</string>
+    <string name="shortcut_urge_short">Urge</string>
+    <string name="shortcut_urge_long">Ride out an urge</string>
+    <string name="shortcut_journal_short">Journal</string>
+    <string name="shortcut_journal_long">Write in journal</string>
+    <string name="shortcut_slip_short">Log entry</string>
+    <string name="shortcut_slip_long">Log an entry</string>
 </resources>

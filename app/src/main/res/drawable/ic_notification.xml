@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome Daymark mark (sun over horizon) for the status bar and Quick Settings. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M10,28 A14,14 0 0,1 38,28 Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M24,6 L24,10 M10.6,11.6 L13.4,14.4 M37.4,11.6 L34.6,14.4" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.4" android:strokeLineCap="round"
+        android:pathData="M6,33 L42,33" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.4" android:strokeLineCap="round"
+        android:pathData="M17,40 L31,40" />
+</vector>

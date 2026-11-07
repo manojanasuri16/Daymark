@@ -104,6 +104,7 @@ fun InsightsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
             }
         }
         item { StreakHistoryCard(data) }
+        if (data.urgeCount > 0) item { UrgesCard(data) }
 
         if (!hasRelapses) {
             item {
@@ -386,5 +387,26 @@ private fun BarChart(
                 alpha = p,
             )
         }
+    }
+}
+
+@Composable
+private fun UrgesCard(data: InsightsData) {
+    DaymarkCard(Modifier.fillMaxWidth()) {
+        CardTitle(
+            "Urges ridden out",
+            "${data.urgeCount} in total · ${data.urgesLast30} in the last 30 days" +
+                (data.averageUrgeIntensity?.let { " · average strength ${"%.1f".format(it)}/5" } ?: ""),
+        )
+        val top = data.urgeTriggers.take(5)
+        if (top.isNotEmpty()) {
+            Text("What sets them off", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            BarRows(top, MaterialTheme.colorScheme.secondary)
+            Spacer(Modifier.height(20.dp))
+        }
+        Text("When they come", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        BarRows(data.urgeTimeOfDay, MaterialTheme.colorScheme.secondary)
     }
 }

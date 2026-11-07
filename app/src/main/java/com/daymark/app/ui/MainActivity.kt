@@ -85,6 +85,9 @@ class MainActivity : FragmentActivity() {
     private var locked by mutableStateOf(true)
     private var backgroundedAt = 0L
 
+    /** Set by a shortcut, Quick Settings tile or notification; consumed once the app is unlocked. */
+    private var pendingRoute by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -94,6 +97,7 @@ class MainActivity : FragmentActivity() {
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         if (savedInstanceState?.getBoolean(KEY_UNLOCKED) == true) locked = false
+        if (savedInstanceState == null) pendingRoute = intent?.getStringExtra(com.daymark.app.notify.Routes.EXTRA)
 
         // Re-lock after the app has been in the background for a short grace period
         // (the grace keeps file pickers for backup/restore from forcing a re-unlock).
@@ -132,13 +136,19 @@ class MainActivity : FragmentActivity() {
                                 Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
                                 Gate.ONBOARDING -> OnboardingScreen { name, emoji, start -> vm.completeOnboarding(name, emoji, start) }
                                 Gate.LOADING -> Box(Modifier.fillMaxSize())
-                                Gate.APP -> DaymarkNav(vm, s)
+                                Gate.APP -> DaymarkNav(vm, s, pendingRoute) { pendingRoute = null }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(com.daymark.app.notify.Routes.EXTRA)?.let { pendingRoute = it }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -167,8 +177,19 @@ private fun habitRoute(id: Long = 0) = "habit?id=$id"
 private const val LOG_ROUTE = "log?id={id}&day={day}"
 private fun logRoute(id: Long = 0, day: Long? = null) = "log?id=$id&day=${day ?: Long.MIN_VALUE}"
 
+private const val URGE_ROUTE = "urge?id={id}&day={day}"
+private fun urgeRoute(id: Long = 0, day: Long? = null) = "urge?id=$id&day=${day ?: Long.MIN_VALUE}"
+
+private const val JOURNAL_ROUTE = "journal?id={id}&day={day}"
+private fun journalRoute(id: Long = 0, day: Long? = null) = "journal?id=$id&day=${day ?: Long.MIN_VALUE}"
+
+private val entryArgs = listOf(
+    navArgument("id") { type = NavType.LongType; defaultValue = 0L },
+    navArgument("day") { type = NavType.LongType; defaultValue = Long.MIN_VALUE },
+)
+
 @Composable
-private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
+private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: String?, onRouteHandled: () -> Unit) {
     val nav = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -177,6 +198,19 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
     val isTab = Tab.entries.any { it.route == route }
 
     LaunchedEffect(Unit) { vm.events.collect { snackbar.showSnackbar(it) } }
+
+    LaunchedEffect(pendingRoute) {
+        val target = when (pendingRoute) {
+            com.daymark.app.notify.Routes.URGE -> urgeRoute()
+            com.daymark.app.notify.Routes.JOURNAL -> journalRoute()
+            com.daymark.app.notify.Routes.SLIP -> logRoute()
+            else -> null
+        }
+        if (pendingRoute != null) {
+            if (target != null) nav.navigate(target) { launchSingleTop = true }
+            onRouteHandled()
+        }
+    }
 
     fun selectTab(tab: Tab) = nav.navigate(tab.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -219,6 +253,8 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
                 DashboardScreen(
                     vm, padding,
                     onLogSlip = { nav.navigate(logRoute()) },
+                    onUrge = { nav.navigate(urgeRoute()) },
+                    onJournal = { nav.navigate(journalRoute()) },
                     onOpenCalendar = { selectTab(Tab.CALENDAR) },
                     onAddHabit = { nav.navigate(habitRoute()) },
                     onEditHabit = { nav.navigate(habitRoute(it.id)) },
@@ -229,6 +265,10 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
                     vm, padding,
                     onLogForDay = { nav.navigate(logRoute(day = it.toEpochDay())) },
                     onEdit = { nav.navigate(logRoute(id = it.id)) },
+                    onUrgeForDay = { nav.navigate(urgeRoute(day = it.toEpochDay())) },
+                    onEditUrge = { nav.navigate(urgeRoute(id = it.id)) },
+                    onJournalForDay = { nav.navigate(journalRoute(day = it.toEpochDay())) },
+                    onEditJournal = { nav.navigate(journalRoute(id = it.id)) },
                 )
             }
             composable(Tab.INSIGHTS.route) { InsightsScreen(vm, padding) }
@@ -266,6 +306,34 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings) {
                 popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
             ) {
                 WidgetGalleryScreen(vm, onBack = { nav.popBackStack() }, onMessage = { m -> scope.launch { snackbar.showSnackbar(m) } })
+            }
+            composable(
+                URGE_ROUTE, arguments = entryArgs,
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                com.daymark.app.ui.urge.UrgeScreen(
+                    vm = vm,
+                    editId = entry.arguments?.getLong("id") ?: 0L,
+                    initialDate = entry.arguments?.getLong("day")?.takeIf { it != Long.MIN_VALUE },
+                    onClose = { nav.popBackStack() },
+                )
+            }
+            composable(
+                JOURNAL_ROUTE, arguments = entryArgs,
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                com.daymark.app.ui.journal.JournalScreen(
+                    vm = vm,
+                    editId = entry.arguments?.getLong("id") ?: 0L,
+                    initialDate = entry.arguments?.getLong("day")?.takeIf { it != Long.MIN_VALUE },
+                    onClose = { nav.popBackStack() },
+                )
             }
             composable(
                 LOG_ROUTE,

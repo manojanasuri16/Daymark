@@ -156,7 +156,7 @@ fun LogScreen(
         TopAppBar(
             title = {
                 Column {
-                    Text(if (editId == 0L) "Log a slip" else "Edit entry")
+                    Text(if (editId != 0L) "Edit entry" else if (habit?.isReduce == true) "Log a use" else "Log a slip")
                     habit?.let {
                         Text("${it.emoji}  ${it.displayName}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -282,7 +282,8 @@ fun LogScreen(
                     vm.saveRelapse(record)
                     if (editId != 0L) onClose()
                     else {
-                        val ts = vm.relapses.value.map { it.timestamp } + timestamp
+                        val raw = vm.relapses.value.map { it.timestamp } + timestamp
+                        val ts = habit?.slipTimes(raw) ?: raw
                         val stats = StreakEngine.compute(habit?.startAt ?: timestamp, ts, System.currentTimeMillis())
                         savedSummary = if (stats.longestDays == 0L && stats.totalCleanDays == 0) {
                             "Every honest entry helps you understand your patterns. Your next streak starts right now."
@@ -395,7 +396,7 @@ fun LogScreen(
 }
 
 @Composable
-private fun Section(title: String, hint: String? = null, content: @Composable () -> Unit) {
+internal fun Section(title: String, hint: String? = null, content: @Composable () -> Unit) {
     Column {
         Text(title, style = MaterialTheme.typography.titleMedium)
         if (hint != null) {
@@ -407,7 +408,7 @@ private fun Section(title: String, hint: String? = null, content: @Composable ()
 }
 
 @Composable
-private fun PickerField(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, modifier: Modifier, onClick: () -> Unit) {
+internal fun PickerField(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, modifier: Modifier, onClick: () -> Unit) {
     DaymarkCard(modifier = modifier, onClick = onClick, contentPadding = 16.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -418,7 +419,7 @@ private fun PickerField(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 }
 
 @Composable
-private fun MoodButton(emoji: String, label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun MoodButton(emoji: String, label: String, selected: Boolean, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val scale by animateFloatAsState(if (selected) 1.12f else 1f, Motion.bouncy(0.35f), label = "mood")
     val bg by animateColorAsState(
