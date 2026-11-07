@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,6 +17,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -76,9 +78,14 @@ private val QuoteOffsetKey = intPreferencesKey("quote_offset")
 /** Shared plumbing: live data flows, per-widget style, themed frame, tap-to-open. */
 abstract class DaymarkGlanceWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
-    override val sizeMode: SizeMode = SizeMode.Exact
+    /**
+     * Fixed breakpoints: the launcher picks the largest layout that fits, on its own. (Exact mode re-measured on every
+     * refresh, so an update pushed while the app was open could leave a widget stuck in the wrong layout.)
+     */
+    override val sizeMode: SizeMode get() = SizeMode.Responsive(sizes)
 
     abstract val kind: WidgetKind
+    abstract val sizes: Set<DpSize>
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val app = context.applicationContext
@@ -174,6 +181,28 @@ private fun NotStarted(style: WidgetStyle) {
     }
 }
 
+/** A frosted rounded tile, tinted with the style's translucent track colour. */
+@Composable
+private fun tileModifier(style: WidgetStyle, strong: Boolean = false): GlanceModifier =
+    GlanceModifier
+        .background(dayNight(LocalContext.current, if (strong) style.track else style.untracked))
+        .cornerRadius(18.dp)
+
+@Composable
+private fun Icon(@androidx.annotation.DrawableRes id: Int, color: Int, size: Dp, description: String? = null) = Image(
+    ImageProvider(id), contentDescription = description,
+    colorFilter = ColorFilter.tint(dayNight(LocalContext.current, color)),
+    modifier = GlanceModifier.size(size),
+)
+
+/** Small rounded label at the top of a widget: "🌊 DAYMARK". */
+@Composable
+private fun HeaderPill(snap: WidgetSnapshot, style: WidgetStyle) {
+    Row(tileModifier(style).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        T(headerLabel(snap), 10.sp, style.text, FontWeight.Medium)
+    }
+}
+
 private fun dpToPx(context: Context, dp: Dp): Int = (dp.value * context.resources.displayMetrics.density).toInt()
 
 private fun daysWord(d: Long) = if (d == 1L) "day" else "days"
@@ -189,6 +218,7 @@ private fun headerLabel(snap: WidgetSnapshot) =
 /** 1 — Streak: big day count, live h:m:s, message, milestone progress. Adapts from 2×1 to 4×3. */
 class StreakWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.STREAK
+    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 110.dp), DpSize(220.dp, 150.dp), DpSize(220.dp, 175.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -213,17 +243,26 @@ class StreakWidget : DaymarkGlanceWidget() {
         }
         val roomy = size.height >= 170.dp && size.width >= 220.dp
         Column(GlanceModifier.fillMaxSize().padding(16.dp)) {
-            T(headerLabel(snap), 10.sp, style.soft, FontWeight.Medium)
+            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                HeaderPill(snap, style)
+                Spacer(GlanceModifier.defaultWeight())
+                if (size.width >= 220.dp) {
+                    Icon(R.drawable.ic_w_trophy, style.soft, 12.dp)
+                    Spacer(GlanceModifier.width(4.dp))
+                    T("${snap.stats.longestDays}d", 11.sp, style.soft, FontWeight.Medium)
+                }
+            }
             Spacer(GlanceModifier.defaultWeight())
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 T("$days", (size.height.value * 0.3f).coerceIn(34f, 64f).sp, style.text, FontWeight.Bold)
                 Spacer(GlanceModifier.width(6.dp))
                 Column {
                     T(daysWord(days), 14.sp, style.soft, FontWeight.Medium)
-                    Spacer(GlanceModifier.height(6.dp))
+                    Spacer(GlanceModifier.height(8.dp))
                 }
+                Spacer(GlanceModifier.defaultWeight())
+                Box(tileModifier(style).padding(horizontal = 10.dp, vertical = 4.dp)) { LiveClock(snap, style.accent, 13f) }
             }
-            LiveClock(snap, style.accent, 13f)
             if (size.height >= 150.dp) {
                 Spacer(GlanceModifier.height(8.dp))
                 if (snap.isReduce) T(todayLine(snap), 12.sp, style.text, FontWeight.Medium)
@@ -236,6 +275,7 @@ class StreakWidget : DaymarkGlanceWidget() {
                 Image(
                     ImageProvider(WidgetArt.bar(dpToPx(context, barW), dpToPx(context, 5.dp), Milestones.progress(snap.stats.currentMillis), style.palette(context))),
                     contentDescription = null,
+                    contentScale = androidx.glance.layout.ContentScale.FillBounds,
                     modifier = GlanceModifier.fillMaxWidth().height(5.dp),
                 )
                 Spacer(GlanceModifier.height(6.dp))
@@ -244,7 +284,7 @@ class StreakWidget : DaymarkGlanceWidget() {
                         next?.let { "${it.title} in ${Format.days(it.days - days)}" } ?: "All milestones reached",
                         11.sp, style.soft, modifier = GlanceModifier.defaultWeight(),
                     )
-                    T("Best ${snap.stats.longestDays}d", 11.sp, style.soft, FontWeight.Medium)
+                    T("${(Milestones.progress(snap.stats.currentMillis) * 100).toInt()}%", 11.sp, style.accent, FontWeight.Medium)
                 }
             }
         }
@@ -254,6 +294,7 @@ class StreakWidget : DaymarkGlanceWidget() {
 /** 2 — Progress ring toward the next milestone, with the streak in the centre. */
 class RingWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.RING
+    override val sizes = setOf(DpSize(100.dp, 100.dp), DpSize(170.dp, 170.dp), DpSize(110.dp, 150.dp), DpSize(250.dp, 110.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -309,6 +350,7 @@ class RingWidget : DaymarkGlanceWidget() {
 /** 3 — Heatmap of recent weeks: clean / slip / untracked, today outlined. */
 class HeatmapWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.HEATMAP
+    override val sizes = setOf(DpSize(180.dp, 100.dp), DpSize(250.dp, 130.dp), DpSize(300.dp, 200.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -359,6 +401,7 @@ class HeatmapWidget : DaymarkGlanceWidget() {
 /** 4 — Daily motivation. Tapping the message shows another; tapping the footer opens the app. */
 class QuoteWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.QUOTE
+    override val sizes = setOf(DpSize(180.dp, 50.dp), DpSize(250.dp, 100.dp), DpSize(250.dp, 170.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -376,7 +419,11 @@ class QuoteWidget : DaymarkGlanceWidget() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!compact) {
-                T(if (reasons.isEmpty()) "✦  TODAY'S REMINDER" else "✦  YOUR REASON", 10.sp, style.soft, FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(R.drawable.ic_w_quote, style.accent, 22.dp)
+                    Spacer(GlanceModifier.width(6.dp))
+                    T(if (reasons.isEmpty()) "TODAY'S REMINDER" else "YOUR REASON", 10.sp, style.soft, FontWeight.Medium)
+                }
                 Spacer(GlanceModifier.defaultWeight())
             }
             T(
@@ -403,91 +450,117 @@ class QuoteWidget : DaymarkGlanceWidget() {
  */
 class ActionsWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.ACTIONS
+    override val sizes = setOf(DpSize(50.dp, 50.dp), DpSize(100.dp, 100.dp), DpSize(170.dp, 70.dp), DpSize(250.dp, 70.dp), DpSize(250.dp, 110.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
         val size = LocalSize.current
         val context = LocalContext.current
         val urge = startIntent(Routes.intent(context, Routes.URGE))
-        if (size.width < 180.dp) {
+        if (size.width < 170.dp) {
+            // 1×1 / 2×2: a single calm "urge" button.
+            val big = size.height >= 100.dp
             Column(
-                GlanceModifier.fillMaxSize().padding(10.dp).clickable(urge),
+                GlanceModifier.fillMaxSize().padding(if (big) 14.dp else 6.dp).clickable(urge),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                T("🛡️", if (size.height >= 100.dp) 30.sp else 22.sp, style.text, align = TextAlign.Center)
-                T("Urge?", 14.sp, style.text, FontWeight.Bold, align = TextAlign.Center)
-                if (size.height >= 100.dp) T("Ride it out", 11.sp, style.soft, align = TextAlign.Center)
+                Box(tileModifier(style, strong = true).size(if (big) 52.dp else 34.dp), contentAlignment = Alignment.Center) {
+                    Icon(R.drawable.ic_w_shield, style.text, if (big) 26.dp else 18.dp, "Ride out an urge")
+                }
+                if (big) {
+                    Spacer(GlanceModifier.height(8.dp))
+                    T("Urge?", 15.sp, style.text, FontWeight.Bold, align = TextAlign.Center)
+                    T("Ride it out", 11.sp, style.soft, align = TextAlign.Center)
+                }
             }
             return
         }
+        val tall = size.height >= 110.dp
         Row(GlanceModifier.fillMaxSize().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            ActionTile("🛡️", "Urge?", "Ride it out", style, urge, emphasis = true)
-            Spacer(GlanceModifier.width(6.dp))
-            ActionTile("📝", "Journal", "How's today?", style, startIntent(Routes.intent(context, Routes.JOURNAL)))
+            ActionTile(R.drawable.ic_w_shield, "Urge?", "Ride it out", style, urge, tall, strong = true)
+            Spacer(GlanceModifier.width(8.dp))
+            ActionTile(R.drawable.ic_w_journal, "Journal", "How's today?", style, startIntent(Routes.intent(context, Routes.JOURNAL)), tall)
             if (size.width >= 250.dp) {
-                Spacer(GlanceModifier.width(6.dp))
-                ActionTile("＋", if (snap.isReduce) "Log use" else "Log", "Private", style, startIntent(Routes.intent(context, Routes.SLIP)))
+                Spacer(GlanceModifier.width(8.dp))
+                ActionTile(R.drawable.ic_w_add, if (snap.isReduce) "Log use" else "Log", "Private", style, startIntent(Routes.intent(context, Routes.SLIP)), tall)
             }
         }
     }
 
     @Composable
     private fun androidx.glance.layout.RowScope.ActionTile(
-        icon: String, title: String, sub: String, style: WidgetStyle, action: androidx.glance.action.Action, emphasis: Boolean = false,
+        icon: Int, title: String, sub: String, style: WidgetStyle, action: androidx.glance.action.Action, tall: Boolean, strong: Boolean = false,
     ) {
-        val size = LocalSize.current
         Column(
-            GlanceModifier.defaultWeight().fillMaxHeight().cornerRadius(16.dp)
-                .background(dayNight(LocalContext.current, if (emphasis) style.track else style.untracked).let { it })
-                .clickable(action)
-                .padding(8.dp),
+            tileModifier(style, strong).defaultWeight().fillMaxHeight().clickable(action).padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            T(icon, 20.sp, style.text, align = TextAlign.Center)
+            Icon(icon, style.text, if (tall) 24.dp else 20.dp, title)
+            Spacer(GlanceModifier.height(4.dp))
             T(title, 13.sp, style.text, FontWeight.Bold, align = TextAlign.Center)
-            if (size.height >= 100.dp) T(sub, 10.sp, style.soft, align = TextAlign.Center)
+            if (tall) T(sub, 10.sp, style.soft, align = TextAlign.Center)
         }
     }
 }
 
-/** 6 — Your progress: money kept, urges ridden out, best streak / clean days, and today's count in cut-down mode. */
+/** 6 — Your progress: money kept, urges ridden out, clean days, best streak, and today's count in cut-down mode. */
 class StatsWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.STATS
+    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 150.dp), DpSize(250.dp, 150.dp), DpSize(250.dp, 230.dp))
+
+    private data class Stat(val icon: Int, val value: String, val label: String)
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
         val size = LocalSize.current
         val stats = buildList {
-            if (snap.tracksMoney) add(Format.money(snap.moneyKept) to "kept")
-            add("${snap.urgeCount}" to if (snap.urgeCount == 1) "urge ridden out" else "urges ridden out")
-            if (snap.isReduce) add("${snap.todayUses}/${snap.dailyLimit}" to "today")
-            add("${snap.stats.totalCleanDays}" to if (snap.isReduce) "days in limit" else "clean days")
-            add("${snap.stats.longestDays}d" to "best streak")
+            if (snap.tracksMoney) add(Stat(R.drawable.ic_w_wallet, Format.money(snap.moneyKept), "kept"))
+            add(Stat(R.drawable.ic_w_shield, "${snap.urgeCount}", if (snap.urgeCount == 1) "urge ridden out" else "urges ridden out"))
+            if (snap.isReduce) add(Stat(R.drawable.ic_w_today, "${snap.todayUses} of ${snap.dailyLimit}", "today"))
+            add(Stat(R.drawable.ic_w_leaf, "${snap.stats.totalCleanDays}", if (snap.isReduce) "days in limit" else "clean days"))
+            add(Stat(R.drawable.ic_w_trophy, "${snap.stats.longestDays}d", "best streak"))
         }
-        val compact = size.height < 100.dp
-        val cols = if (size.width >= 250.dp) 2 else 1
-        val rows = if (compact) 1 else ((size.height.value - 40f) / 52f).toInt().coerceIn(1, 3)
-        val shown = stats.take(if (compact) (if (size.width >= 250.dp) 2 else 1) else cols * rows)
-        Column(GlanceModifier.fillMaxSize().padding(horizontal = 16.dp, vertical = if (compact) 8.dp else 14.dp)) {
-            if (!compact) {
-                T(headerLabel(snap), 10.sp, style.soft, FontWeight.Medium)
-                Spacer(GlanceModifier.defaultWeight())
-            }
-            val perRow = if (compact) shown.size else cols
-            shown.chunked(perRow.coerceAtLeast(1)).forEach { row ->
-                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    row.forEach { (value, label) ->
-                        Column(GlanceModifier.defaultWeight()) {
-                            T(value, if (compact) 18.sp else 22.sp, style.text, FontWeight.Bold)
-                            T(label, 11.sp, style.soft)
+        if (size.height < 100.dp) {
+            // Slim: one or two stats side by side.
+            Row(GlanceModifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                stats.take(if (size.width >= 250.dp) 2 else 1).forEachIndexed { i, st ->
+                    if (i > 0) Spacer(GlanceModifier.width(12.dp))
+                    Row(GlanceModifier.defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(st.icon, style.accent, 18.dp)
+                        Spacer(GlanceModifier.width(8.dp))
+                        Column {
+                            T(st.value, 17.sp, style.text, FontWeight.Bold)
+                            T(st.label, 10.sp, style.soft)
                         }
                     }
                 }
-                if (!compact) Spacer(GlanceModifier.height(6.dp))
             }
-            if (!compact) Spacer(GlanceModifier.defaultWeight())
+            return
+        }
+        val cols = if (size.width >= 250.dp) 2 else 1
+        val rows = if (size.height >= 230.dp) 3 else 2
+        Column(GlanceModifier.fillMaxSize().padding(12.dp)) {
+            HeaderPill(snap, style)
+            Spacer(GlanceModifier.height(8.dp))
+            stats.take(cols * rows).chunked(cols).forEachIndexed { r, row ->
+                if (r > 0) Spacer(GlanceModifier.height(8.dp))
+                Row(GlanceModifier.fillMaxWidth().defaultWeight()) {
+                    row.forEachIndexed { c, st ->
+                        if (c > 0) Spacer(GlanceModifier.width(8.dp))
+                        Column(
+                            tileModifier(style).defaultWeight().fillMaxHeight().padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(st.icon, style.accent, 16.dp)
+                            Spacer(GlanceModifier.height(4.dp))
+                            T(st.value, 18.sp, style.text, FontWeight.Bold)
+                            T(st.label, 10.sp, style.soft)
+                        }
+                    }
+                }
+            }
         }
     }
 }

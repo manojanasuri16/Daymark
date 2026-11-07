@@ -56,7 +56,7 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
     val next = Milestones.next(days)
     val progress = Milestones.progress(millis)
 
-    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; WidgetKind.ACTIONS -> 3f; else -> 2f }
+    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; WidgetKind.ACTIONS -> 3f; WidgetKind.STATS -> 1.45f; else -> 2f }
     Box(
         modifier
             .aspectRatio(aspect)
@@ -140,39 +140,51 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                     if (habit.isNotBlank()) Text("  ·  free from ${habit.lowercase()}", color = soft, fontSize = 11.sp, maxLines = 1)
                 }
             }
-            WidgetKind.ACTIONS -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(Triple("🛡️", "Urge?", true), Triple("📝", "Journal", false), Triple("＋", "Log", false)).forEach { (icon, label, em) ->
+            WidgetKind.ACTIONS -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    Triple(com.daymark.app.R.drawable.ic_w_shield, "Urge?", true),
+                    Triple(com.daymark.app.R.drawable.ic_w_journal, "Journal", false),
+                    Triple(com.daymark.app.R.drawable.ic_w_add, "Log", false),
+                ).forEach { (icon, label, strong) ->
                     Column(
-                        Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(16.dp)).background(if (em) track else colorResource(style.untracked)),
+                        Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(18.dp))
+                            .background(if (strong) track else colorResource(style.untracked)),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(icon, fontSize = 18.sp)
+                        androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(icon), null, tint = text, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(label, color = text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            WidgetKind.STATS -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
-                Text(if (habit.isBlank()) "DAYMARK" else habit.uppercase(), color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                Spacer(Modifier.weight(1f))
+            WidgetKind.STATS -> Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "${snap?.emoji?.let { "$it  " } ?: ""}${if (habit.isBlank()) "DAYMARK" else habit.uppercase()}",
+                    color = text, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(colorResource(style.untracked)).padding(horizontal = 10.dp, vertical = 4.dp),
+                )
                 val items = buildList {
-                    if (snap == null || snap.tracksMoney) add((if (snap == null) Format.money(4200.0) else Format.money(snap.moneyKept)) to "kept")
-                    add("${snap?.urgeCount ?: 9}" to "urges ridden out")
-                    add("${snap?.stats?.totalCleanDays ?: 40}" to "clean days")
-                    add("${snap?.stats?.longestDays ?: 21}d" to "best streak")
+                    if (snap == null || snap.tracksMoney) add(Triple(com.daymark.app.R.drawable.ic_w_wallet, if (snap == null) Format.money(4200.0) else Format.money(snap.moneyKept), "kept"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_shield, "${snap?.urgeCount ?: 9}", "urges ridden out"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_leaf, "${snap?.stats?.totalCleanDays ?: 40}", "clean days"))
+                    add(Triple(com.daymark.app.R.drawable.ic_w_trophy, "${snap?.stats?.longestDays ?: 21}d", "best streak"))
                 }.take(4)
                 items.chunked(2).forEach { row ->
-                    Row(Modifier.fillMaxWidth()) {
-                        row.forEach { (v, l) ->
-                            Column(Modifier.weight(1f)) {
-                                Text(v, color = text, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                                Text(l, color = soft, fontSize = 11.sp, maxLines = 1)
+                    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (icon, v, l) ->
+                            Column(
+                                Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(18.dp)).background(colorResource(style.untracked))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(icon), null, tint = accent, modifier = Modifier.size(14.dp))
+                                Text(v, color = text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(l, color = soft, fontSize = 10.sp, maxLines = 1)
                             }
                         }
                     }
-                    Spacer(Modifier.height(6.dp))
                 }
-                Spacer(Modifier.weight(1f))
             }
         }
     }

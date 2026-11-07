@@ -36,6 +36,7 @@ class DaymarkApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        keepWorkManagerAlive()
         // Keep home-screen widgets in sync with any data change, wherever it originates.
         container.appScope.launch {
             container.habits.ensureLegacyHabit(container.settings.current())
@@ -50,6 +51,23 @@ class DaymarkApp : Application() {
             }
         }
     }
+}
+
+/**
+ * WorkManager disables its own receivers whenever no work is pending; that component change makes some launchers
+ * reset every home-screen widget to its initial layout until the next update. A far-future no-op job keeps it from
+ * ever going idle. (Known Glance + WorkManager issue.)
+ */
+private fun Context.keepWorkManagerAlive() {
+    val req = androidx.work.OneTimeWorkRequestBuilder<KeepAliveWorker>()
+        .setInitialDelay(3650, java.util.concurrent.TimeUnit.DAYS)
+        .build()
+    androidx.work.WorkManager.getInstance(this)
+        .enqueueUniqueWork("daymark-keep-alive", androidx.work.ExistingWorkPolicy.KEEP, req)
+}
+
+class KeepAliveWorker(context: Context, params: androidx.work.WorkerParameters) : androidx.work.Worker(context, params) {
+    override fun doWork(): Result = Result.success()
 }
 
 val Context.container: AppContainer get() = (applicationContext as DaymarkApp).container
