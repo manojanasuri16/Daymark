@@ -11,7 +11,7 @@ Every day you mark is a day you made. A slip never erases what you've built.
 - **Calendar:** a swipeable month view. Clean days are green, slips are red and untracked days are grey. Tap a day for details, or to log or edit a slip.
 - **Quick slip logging:** date, time, mood (a 5-point scale), triggers (multi-select plus your own), situation and notes. Entries can be edited or deleted, and a delete can be undone.
 - **Urge log:** "Feeling an urge? Ride it out" records a craving you got through without slipping: its strength, triggers and what helped. Your own reasons are shown first.
-- **Journal:** write on any day, with a mood and a gentle daily prompt.
+- **Journal:** write on any day, with a mood, a gentle daily prompt and up to 3 photos. Photos stay inside Daymark (never added to your gallery) and are re-encoded, which removes location and other camera metadata.
 - **Your reasons:** list why you're doing this. They rotate on the dashboard, appear on the urge screen and, if you choose, on the motivation widget.
 - **Money kept:** add what a habit used to cost per week or month, and see what you've kept.
 - **Cut-down mode:** set a daily limit instead of quitting outright. Only days over the limit count as a slip.
@@ -34,7 +34,7 @@ Every day you mark is a day you made. A slip never erases what you've built.
   - Optional "hide in recents" (FLAG_SECURE) blanks the app preview and blocks screenshots.
   - **Discreet mode** (on by default): widgets, notifications, the Quick Settings tile and share cards never name what you're tracking.
   - Android auto-backup is disabled.
-- **Backup and restore:** export to, and import from, a JSON file that you control, optionally protected with a password (AES-256-GCM). Optional automatic daily backups go to a folder you pick, keeping the last 7.
+- **Backup and restore:** export to, and import from, a JSON file that you control, optionally protected with a password (AES-256-GCM). Journal photos are included unless you turn that off. Optional automatic daily backups go to a folder you pick, keeping the last 7.
 - **Themes:** light, dark or system, eight accent colours (Dusk indigo by default), or Material You wallpaper colours. Motion uses spring physics, instant press feedback and haptics, and falls back to fades when animations are turned off system-wide.
 
 ## Install
