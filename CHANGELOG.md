@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 — 2026-11-07 (versionCode 4)
+
+• Add up to 3 photos to a journal entry. They stay private inside Daymark, never in your gallery, and are included in backups (you can turn that off)
+• Widgets now fill their whole space, with sharper sizing for every widget
+• Heatmap and progress ring scale to the widget's real size
+
 ## 1.2.0 — 2026-11-07 (versionCode 3)
 
 • Ride out an urge: log cravings you got through, and what helped

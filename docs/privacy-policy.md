@@ -14,7 +14,7 @@ None. Daymark has no account system, no analytics, no advertising and no crash-r
 
 ## Data stored on your device
 
-The information you enter (trackers, slip logs, urges you rode out, journal entries, your reasons, cost estimates, moods, triggers, situations, notes and app settings) is stored locally on your device only. It is not sent anywhere.
+The information you enter (trackers, slip logs, urges you rode out, journal entries and any photos you attach to them, your reasons, cost estimates, moods, triggers, situations, notes and app settings) is stored locally on your device only. It is not sent anywhere.
 
 ## No internet access
 
@@ -23,6 +23,10 @@ Daymark does not request the Android INTERNET permission. The app is technically
 ## Notifications
 
 If you turn on reminders, Daymark asks for Android's notification permission and shows local notifications (a daily check-in and milestone celebrations). They are scheduled on your device; nothing is sent to a server. By default ("discreet mode") notifications, widgets, the Quick Settings tile and share images never name what you are tracking.
+
+## Journal photos
+
+If you attach a photo to a journal entry, you pick it with Android's photo picker, which gives Daymark access only to the photos you select. Daymark stores a resized copy in its own private storage. The copy is not added to your gallery, and re-encoding it removes camera metadata such as location. Photos are included in backups unless you turn that off in Settings, and are deleted when you delete the entry or erase all data.
 
 ## Sharing
 
