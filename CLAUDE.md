@@ -8,7 +8,7 @@ Daymark is a private, offline-first Android app for habit recovery and streak tr
 - **Tone:** say "slip", never "failure" or "relapse" in UI copy. Keep it supportive and non-judgmental. A slip must never erase history: longest streak, total clean days and achievements are always kept.
 - **Never change** `applicationId` (`com.daymark.app`) or the signing key. Doing so would break every user's updates.
 - **`versionCode` must go up with every release** (`scripts/release.sh` does this).
-- **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver` and `QuoteWidgetReceiver` are referenced by widgets already placed on users' home screens.
+- **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver`, `QuoteWidgetReceiver`, `ActionsWidgetReceiver` and `StatsWidgetReceiver` are referenced by widgets already placed on users' home screens.
 - **Every Room schema change needs a migration** (see "Recipes"). Losing user data is the worst possible bug.
 
 ## Git
@@ -60,7 +60,7 @@ ui/
   dashboard/ calendar/ log/ urge/ journal/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
   share/ShareCard.kt  milestone image rendered on-device, shared via FileProvider + share sheet
 widget/
-  Widgets.kt        DaymarkGlanceWidget base + StreakWidget, RingWidget, HeatmapWidget, QuoteWidget, receivers
+  Widgets.kt        DaymarkGlanceWidget base + Streak, Ring, Heatmap, Quote (shows reasons when not discreet), Actions (urge/journal/log), Stats; receivers
   WidgetStyle.kt    WidgetStyle enum (6 styles → res/values/widget_colors.xml), WidgetKind, WidgetDefaults
   WidgetData.kt     WidgetSnapshot (per-tracker data), WidgetUpdater + WorkManager refresh at the next day boundary
   WidgetArt.kt      bitmaps Glance can't draw: ring, heatmap, progress bar
@@ -77,7 +77,7 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - **Day status** colours: `CLEAN` is green, `RELAPSE` is red, `UNTRACKED` is grey. These are semantic colours and don't follow the accent.
 - **Widgets:** the live h:m:s is a system `Chronometer` embedded via `AndroidRemoteViews` (`res/layout/widget_chronometer.xml`), so it ticks without waking the app. Each widget stores its style and tracker in Glance state (`StyleKey`, `HabitKey`). A new widget claims `WidgetDefaults` on its first render.
 - **Cut-down mode:** a tracker with `dailyLimit > 0` counts every entry as a "use"; only the entry that takes a day over the limit is a slip. Always pass entry times through `Habit.slipTimes()` before `StreakEngine`.
-- **Discreet mode** (on by default): notifications, the QS tile and share cards never name a tracker. Keep it that way for any new surface outside the app.
+- **Discreet mode** (on by default): widgets, notifications, the QS tile and share cards never name a tracker (`WidgetSnapshot.habit` is blank, reasons hidden). Keep it that way for any new surface outside the app.
 - **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
 

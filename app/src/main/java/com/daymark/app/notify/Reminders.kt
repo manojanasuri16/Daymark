@@ -37,6 +37,8 @@ object Routes {
     fun intent(context: Context, route: String): Intent =
         Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
+            // Distinct data per route so PendingIntents for different buttons never collapse into one.
+            .setData(android.net.Uri.parse("daymark://route/${route.ifEmpty { "home" }}"))
             .putExtra(EXTRA, route)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 }
@@ -62,7 +64,6 @@ object Reminders {
             NotificationManagerCompat.from(context).areNotificationsEnabled()
 
     private fun ensureChannels(context: Context) {
-        if (Build.VERSION.SDK_INT < 26) return
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CH_CHECK_IN, "Daily check-in", NotificationManager.IMPORTANCE_DEFAULT).apply {

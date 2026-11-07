@@ -113,6 +113,36 @@
                 android:resource="@xml/widget_quote_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.ActionsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_actions_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_actions_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StatsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_stats_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
+
         <receiver android:name=".widget.WidgetPinnedReceiver" android:exported="false" />
 
         <activity

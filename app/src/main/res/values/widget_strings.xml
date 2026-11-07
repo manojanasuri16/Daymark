@@ -7,4 +7,8 @@
     <string name="widget_heatmap_description">Your recent weeks at a glance: clean, slip and untracked days</string>
     <string name="widget_quote_name">Daily motivation</string>
     <string name="widget_quote_description">A gentle message each day. Tap for another.</string>
+    <string name="widget_actions_name">Quick actions</string>
+    <string name="widget_actions_description">Ride out an urge, journal or log in one tap</string>
+    <string name="widget_stats_name">Your progress</string>
+    <string name="widget_stats_description">Money kept, urges ridden out, clean days and best streak</string>
 </resources>

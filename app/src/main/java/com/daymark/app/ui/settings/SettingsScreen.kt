@@ -301,7 +301,7 @@ fun SettingsScreen(
                 Divider()
                 SwitchRow(
                     Icons.Rounded.Masks, "Discreet mode",
-                    "Notifications and share cards never name what you're tracking",
+                    "Widgets, notifications and share cards never name what you're tracking",
                     settings.discreet,
                 ) { vm.setDiscreet(it) }
             }

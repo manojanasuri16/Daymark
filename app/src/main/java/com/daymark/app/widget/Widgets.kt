@@ -31,6 +31,7 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity as startIntent
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -61,6 +62,7 @@ import com.daymark.app.domain.DayStatus
 import com.daymark.app.domain.Format
 import com.daymark.app.domain.Messages
 import com.daymark.app.domain.Milestones
+import com.daymark.app.notify.Routes
 import com.daymark.app.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +86,7 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
         val s0 = withContext(Dispatchers.IO) { app.container.settings.current() }
         val h0 = withContext(Dispatchers.IO) { app.container.habits.all() }
         val r0 = withContext(Dispatchers.IO) { app.container.relapses.all() }
+        val u0 = withContext(Dispatchers.IO) { app.container.urges.allEntities().map { it.toRecord() } }
         updateAppWidgetState(app, id) { prefs ->
             if (prefs[StyleKey] == null) prefs[StyleKey] = WidgetDefaults.get(app, kind).id
             if (prefs[HabitKey] == null && h0.isNotEmpty()) {
@@ -94,10 +97,11 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
             val settings by app.container.settings.settings.collectAsState(s0)
             val habits by app.container.habits.habits.collectAsState(h0)
             val relapses by app.container.relapses.relapses.collectAsState(r0)
+            val urges by app.container.urges.urges.collectAsState(u0)
             val prefs = currentState<Preferences>()
             val style = WidgetStyle.of(prefs[StyleKey])
             val habit = if (settings.onboarded) WidgetSnapshot.resolveHabit(habits, prefs[HabitKey], settings) else null
-            val snap = WidgetSnapshot.from(habit, relapses)
+            val snap = WidgetSnapshot.from(habit, relapses, urges = urges, discreet = settings.discreet)
             Box(
                 GlanceModifier
                     .fillMaxSize()
@@ -174,8 +178,12 @@ private fun dpToPx(context: Context, dp: Dp): Int = (dp.value * context.resource
 
 private fun daysWord(d: Long) = if (d == 1L) "day" else "days"
 
+/** Cut-down mode: "Today 1 of 2". */
+internal fun todayLine(snap: WidgetSnapshot) = "Today ${snap.todayUses} of ${snap.dailyLimit}" +
+    if (snap.todayUses > snap.dailyLimit) " · fresh page tomorrow" else ""
+
 private fun headerLabel(snap: WidgetSnapshot) =
-    (if (snap.habit.isBlank()) "DAYMARK" else "FREE FROM ${snap.habit.uppercase()}").let { if (snap.emoji.isBlank()) it else "${snap.emoji}  $it" }
+    (if (snap.habit.isBlank()) "DAYMARK" else if (snap.isReduce) "CUTTING DOWN: ${snap.habit.uppercase()}" else "FREE FROM ${snap.habit.uppercase()}").let { if (snap.emoji.isBlank()) it else "${snap.emoji}  $it" }
 // endregion
 
 /** 1 — Streak: big day count, live h:m:s, message, milestone progress. Adapts from 2×1 to 4×3. */
@@ -198,7 +206,7 @@ class StreakWidget : DaymarkGlanceWidget() {
                 }
                 if (size.width >= 240.dp) {
                     Spacer(GlanceModifier.width(14.dp))
-                    T(snap.message, 12.sp, style.text, maxLines = 2, modifier = GlanceModifier.defaultWeight())
+                    T(if (snap.isReduce) todayLine(snap) else snap.message, 12.sp, style.text, maxLines = 2, modifier = GlanceModifier.defaultWeight())
                 }
             }
             return
@@ -218,7 +226,8 @@ class StreakWidget : DaymarkGlanceWidget() {
             LiveClock(snap, style.accent, 13f)
             if (size.height >= 150.dp) {
                 Spacer(GlanceModifier.height(8.dp))
-                T(snap.message, 12.sp, style.text, maxLines = if (roomy) 2 else 1)
+                if (snap.isReduce) T(todayLine(snap), 12.sp, style.text, FontWeight.Medium)
+                else T(snap.message, 12.sp, style.text, maxLines = if (roomy) 2 else 1)
             }
             if (roomy) {
                 Spacer(GlanceModifier.height(10.dp))
@@ -355,7 +364,9 @@ class QuoteWidget : DaymarkGlanceWidget() {
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
         val size = LocalSize.current
         val offset = prefs[QuoteOffsetKey] ?: 0
-        val all = Messages.motivational
+        // Your own reasons when you've written some (and discreet mode is off); otherwise gentle general messages.
+        val reasons = snap.visibleReasons
+        val all = reasons.ifEmpty { Messages.motivational }
         val base = Math.floorMod(snap.today.toEpochDay(), all.size.toLong()).toInt()
         val message = all[(base + offset) % all.size]
         val compact = size.height < 100.dp
@@ -365,7 +376,7 @@ class QuoteWidget : DaymarkGlanceWidget() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!compact) {
-                T("✦  TODAY'S REMINDER", 10.sp, style.soft, FontWeight.Medium)
+                T(if (reasons.isEmpty()) "✦  TODAY'S REMINDER" else "✦  YOUR REASON", 10.sp, style.soft, FontWeight.Medium)
                 Spacer(GlanceModifier.defaultWeight())
             }
             T(
@@ -386,9 +397,104 @@ class QuoteWidget : DaymarkGlanceWidget() {
     }
 }
 
+/**
+ * 5 — Quick actions: ride out an urge (always), plus journal and log on wider sizes.
+ * Labels are deliberately neutral — nothing on the home screen says what you're tracking.
+ */
+class ActionsWidget : DaymarkGlanceWidget() {
+    override val kind = WidgetKind.ACTIONS
+
+    @Composable
+    override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
+        val size = LocalSize.current
+        val context = LocalContext.current
+        val urge = startIntent(Routes.intent(context, Routes.URGE))
+        if (size.width < 180.dp) {
+            Column(
+                GlanceModifier.fillMaxSize().padding(10.dp).clickable(urge),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                T("🛡️", if (size.height >= 100.dp) 30.sp else 22.sp, style.text, align = TextAlign.Center)
+                T("Urge?", 14.sp, style.text, FontWeight.Bold, align = TextAlign.Center)
+                if (size.height >= 100.dp) T("Ride it out", 11.sp, style.soft, align = TextAlign.Center)
+            }
+            return
+        }
+        Row(GlanceModifier.fillMaxSize().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            ActionTile("🛡️", "Urge?", "Ride it out", style, urge, emphasis = true)
+            Spacer(GlanceModifier.width(6.dp))
+            ActionTile("📝", "Journal", "How's today?", style, startIntent(Routes.intent(context, Routes.JOURNAL)))
+            if (size.width >= 250.dp) {
+                Spacer(GlanceModifier.width(6.dp))
+                ActionTile("＋", if (snap.isReduce) "Log use" else "Log", "Private", style, startIntent(Routes.intent(context, Routes.SLIP)))
+            }
+        }
+    }
+
+    @Composable
+    private fun androidx.glance.layout.RowScope.ActionTile(
+        icon: String, title: String, sub: String, style: WidgetStyle, action: androidx.glance.action.Action, emphasis: Boolean = false,
+    ) {
+        val size = LocalSize.current
+        Column(
+            GlanceModifier.defaultWeight().fillMaxHeight().cornerRadius(16.dp)
+                .background(dayNight(LocalContext.current, if (emphasis) style.track else style.untracked).let { it })
+                .clickable(action)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            T(icon, 20.sp, style.text, align = TextAlign.Center)
+            T(title, 13.sp, style.text, FontWeight.Bold, align = TextAlign.Center)
+            if (size.height >= 100.dp) T(sub, 10.sp, style.soft, align = TextAlign.Center)
+        }
+    }
+}
+
+/** 6 — Your progress: money kept, urges ridden out, best streak / clean days, and today's count in cut-down mode. */
+class StatsWidget : DaymarkGlanceWidget() {
+    override val kind = WidgetKind.STATS
+
+    @Composable
+    override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
+        val size = LocalSize.current
+        val stats = buildList {
+            if (snap.tracksMoney) add(Format.money(snap.moneyKept) to "kept")
+            add("${snap.urgeCount}" to if (snap.urgeCount == 1) "urge ridden out" else "urges ridden out")
+            if (snap.isReduce) add("${snap.todayUses}/${snap.dailyLimit}" to "today")
+            add("${snap.stats.totalCleanDays}" to if (snap.isReduce) "days in limit" else "clean days")
+            add("${snap.stats.longestDays}d" to "best streak")
+        }
+        val compact = size.height < 100.dp
+        val cols = if (size.width >= 250.dp) 2 else 1
+        val rows = if (compact) 1 else ((size.height.value - 40f) / 52f).toInt().coerceIn(1, 3)
+        val shown = stats.take(if (compact) (if (size.width >= 250.dp) 2 else 1) else cols * rows)
+        Column(GlanceModifier.fillMaxSize().padding(horizontal = 16.dp, vertical = if (compact) 8.dp else 14.dp)) {
+            if (!compact) {
+                T(headerLabel(snap), 10.sp, style.soft, FontWeight.Medium)
+                Spacer(GlanceModifier.defaultWeight())
+            }
+            val perRow = if (compact) shown.size else cols
+            shown.chunked(perRow.coerceAtLeast(1)).forEach { row ->
+                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    row.forEach { (value, label) ->
+                        Column(GlanceModifier.defaultWeight()) {
+                            T(value, if (compact) 18.sp else 22.sp, style.text, FontWeight.Bold)
+                            T(label, 11.sp, style.soft)
+                        }
+                    }
+                }
+                if (!compact) Spacer(GlanceModifier.height(6.dp))
+            }
+            if (!compact) Spacer(GlanceModifier.defaultWeight())
+        }
+    }
+}
+
 class NextQuoteAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        updateAppWidgetState(context, glanceId) { it[QuoteOffsetKey] = ((it[QuoteOffsetKey] ?: 0) + 1) % Messages.motivational.size }
+        updateAppWidgetState(context, glanceId) { it[QuoteOffsetKey] = ((it[QuoteOffsetKey] ?: 0) + 1) % 10_000 }
         QuoteWidget().update(context, glanceId)
     }
 }
@@ -414,12 +520,16 @@ class DaymarkWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceA
 class RingWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = RingWidget() }
 class HeatmapWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = HeatmapWidget() }
 class QuoteWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = QuoteWidget() }
+class ActionsWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = ActionsWidget() }
+class StatsWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = StatsWidget() }
 
 fun WidgetKind.receiver(): Class<out GlanceAppWidgetReceiver> = when (this) {
     WidgetKind.STREAK -> DaymarkWidgetReceiver::class.java
     WidgetKind.RING -> RingWidgetReceiver::class.java
     WidgetKind.HEATMAP -> HeatmapWidgetReceiver::class.java
     WidgetKind.QUOTE -> QuoteWidgetReceiver::class.java
+    WidgetKind.ACTIONS -> ActionsWidgetReceiver::class.java
+    WidgetKind.STATS -> StatsWidgetReceiver::class.java
 }
 
 fun WidgetKind.widget(): GlanceAppWidget = when (this) {
@@ -427,6 +537,8 @@ fun WidgetKind.widget(): GlanceAppWidget = when (this) {
     WidgetKind.RING -> RingWidget()
     WidgetKind.HEATMAP -> HeatmapWidget()
     WidgetKind.QUOTE -> QuoteWidget()
+    WidgetKind.ACTIONS -> ActionsWidget()
+    WidgetKind.STATS -> StatsWidget()
 }
 
 fun kindForProvider(className: String?): WidgetKind =

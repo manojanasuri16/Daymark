@@ -40,8 +40,9 @@ class DaymarkApp : Application() {
         container.appScope.launch {
             container.habits.ensureLegacyHabit(container.settings.current())
             com.daymark.app.data.AutoBackup.schedule(this@DaymarkApp, enabled = container.settings.current().autoBackupUri.isNotEmpty())
-            combine(container.habits.habits, container.relapses.relapses) { h, r ->
-                h to r.map { it.habitId to it.timestamp }
+            // Anything a widget shows: trackers (incl. money/reasons/limit), entries, urges, discreet mode.
+            combine(container.habits.habits, container.relapses.relapses, container.urges.urges, container.settings.settings) { h, r, u, s ->
+                listOf(h, r.map { it.habitId to it.timestamp }, u.map { it.habitId to it.timestamp }, s.discreet, s.selectedHabitId)
             }.distinctUntilChanged().debounce(300).collect {
                 WidgetUpdater.updateAll(this@DaymarkApp)
                 // Milestone timing depends on the latest slip; keep the next alert in step.

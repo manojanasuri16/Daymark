@@ -51,11 +51,12 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
     val millis = snap?.stats?.currentMillis ?: (12 * 86_400_000L + 15_000_000L)
     val clock = (millis % 86_400_000L).let { "%d:%02d:%02d".format(it / 3_600_000, (it / 60_000) % 60, (it / 1000) % 60) }
     val habit = snap?.habit.orEmpty()
-    val message = snap?.message ?: Messages.motivational.first()
+    val reasons = snap?.visibleReasons.orEmpty()
+    val message = reasons.firstOrNull() ?: snap?.message ?: Messages.motivational.first()
     val next = Milestones.next(days)
     val progress = Milestones.progress(millis)
 
-    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; else -> 2f }
+    val aspect = when (kind) { WidgetKind.RING -> 1f; WidgetKind.QUOTE -> 2.4f; WidgetKind.ACTIONS -> 3f; else -> 2f }
     Box(
         modifier
             .aspectRatio(aspect)
@@ -65,7 +66,10 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
     ) {
         when (kind) {
             WidgetKind.STREAK -> Column(Modifier.fillMaxSize().padding(16.dp)) {
-                Text(if (habit.isBlank()) "DAYMARK" else "FREE FROM ${habit.uppercase()}", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(
+                    if (habit.isBlank()) "DAYMARK" else if (snap?.isReduce == true) "CUTTING DOWN: ${habit.uppercase()}" else "FREE FROM ${habit.uppercase()}",
+                    color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                )
                 Spacer(Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("$days", color = text, fontSize = 44.sp, fontWeight = FontWeight.Bold, lineHeight = 44.sp)
@@ -74,7 +78,7 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                 }
                 Text(clock, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
-                Text(message, color = text, fontSize = 12.sp, maxLines = 1)
+                Text(if (snap?.isReduce == true) todayLine(snap) else message, color = text, fontSize = 12.sp, maxLines = 1)
                 Spacer(Modifier.height(8.dp))
                 Canvas(Modifier.fillMaxWidth().height(5.dp)) {
                     val r = CornerRadius(size.height / 2)
@@ -129,12 +133,46 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                 }
             }
             WidgetKind.QUOTE -> Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                Text("✦  TODAY'S REMINDER", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                Text(if (reasons.isEmpty()) "✦  TODAY'S REMINDER" else "✦  YOUR REASON", color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 Text(message, color = text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 3, lineHeight = 21.sp)
                 Row {
                     Text("Day $days", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     if (habit.isNotBlank()) Text("  ·  free from ${habit.lowercase()}", color = soft, fontSize = 11.sp, maxLines = 1)
                 }
+            }
+            WidgetKind.ACTIONS -> Row(Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(Triple("🛡️", "Urge?", true), Triple("📝", "Journal", false), Triple("＋", "Log", false)).forEach { (icon, label, em) ->
+                    Column(
+                        Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(16.dp)).background(if (em) track else colorResource(style.untracked)),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(icon, fontSize = 18.sp)
+                        Text(label, color = text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            WidgetKind.STATS -> Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
+                Text(if (habit.isBlank()) "DAYMARK" else habit.uppercase(), color = soft, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Spacer(Modifier.weight(1f))
+                val items = buildList {
+                    if (snap == null || snap.tracksMoney) add((if (snap == null) Format.money(4200.0) else Format.money(snap.moneyKept)) to "kept")
+                    add("${snap?.urgeCount ?: 9}" to "urges ridden out")
+                    add("${snap?.stats?.totalCleanDays ?: 40}" to "clean days")
+                    add("${snap?.stats?.longestDays ?: 21}d" to "best streak")
+                }.take(4)
+                items.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEach { (v, l) ->
+                            Column(Modifier.weight(1f)) {
+                                Text(v, color = text, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(l, color = soft, fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                Spacer(Modifier.weight(1f))
             }
         }
     }
