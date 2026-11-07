@@ -1,0 +1,9 @@
+New in 1.2:
+• Ride out an urge: log cravings you got through, and what helped
+• Journal on any day, and keep your own reasons close
+• Money kept, and a cut-down mode with a daily limit
+• Daily check-in and milestone reminders
+• New widgets: Quick actions and Your progress; refreshed widget design
+• Discreet mode: nothing on your home screen names what you track
+• Password-protected and automatic backups
+• Quick Settings tile, app shortcuts, share a milestone
