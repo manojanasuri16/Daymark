@@ -71,7 +71,8 @@ class WidgetConfigActivity : ComponentActivity() {
         setResult(RESULT_CANCELED, result)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
 
-        val kind = kindForProvider(AppWidgetManager.getInstance(this).getAppWidgetInfo(appWidgetId)?.provider?.className)
+        // Never guess the kind: updating a widget with the wrong GlanceAppWidget class makes it draw another kind's layout.
+        val kind = runBlocking { kindOfAppWidget(this@WidgetConfigActivity, appWidgetId) } ?: run { finish(); return }
         val glanceId = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
         val state = runBlocking { getAppWidgetState(this@WidgetConfigActivity, PreferencesGlanceStateDefinition, glanceId) }
         val initial = WidgetStyle.of(state[StyleKey])

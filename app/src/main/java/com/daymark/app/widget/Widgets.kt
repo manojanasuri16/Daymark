@@ -29,6 +29,7 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
@@ -94,10 +95,19 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
         val h0 = withContext(Dispatchers.IO) { app.container.habits.all() }
         val r0 = withContext(Dispatchers.IO) { app.container.relapses.all() }
         val u0 = withContext(Dispatchers.IO) { app.container.urges.allEntities().map { it.toRecord() } }
+        // Glance keeps one running session per widget id, and every later update() for that id, from any
+        // GlanceAppWidget class, is routed into it. If a session was ever started by the wrong class (a refresh
+        // that resolved the wrong kind), the widget kept drawing that class's layout, e.g. a ring widget showing
+        // the streak widget's slim row, until the session timed out. So the content always follows the widget's
+        // real provider (its receiver), never the class that happened to start the session.
+        val realKind = withContext(Dispatchers.IO) {
+            runCatching { kindOfAppWidget(app, GlanceAppWidgetManager(app).getAppWidgetId(id)) }.getOrNull()
+        } ?: kind
+        val renderer: DaymarkGlanceWidget = if (realKind == kind) this else realKind.widget() as DaymarkGlanceWidget
         updateAppWidgetState(app, id) { prefs ->
-            if (prefs[StyleKey] == null) prefs[StyleKey] = WidgetDefaults.get(app, kind).id
+            if (prefs[StyleKey] == null) prefs[StyleKey] = WidgetDefaults.get(app, realKind).id
             if (prefs[HabitKey] == null && h0.isNotEmpty()) {
-                prefs[HabitKey] = WidgetDefaults.habit(app, kind).takeIf { d -> h0.any { it.id == d } } ?: s0.selectedHabitId
+                prefs[HabitKey] = WidgetDefaults.habit(app, realKind).takeIf { d -> h0.any { it.id == d } } ?: s0.selectedHabitId
             }
         }
         provideContent {
@@ -117,7 +127,7 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
                     .cornerRadius(android.R.dimen.system_app_widget_background_radius)
                     .clickable(actionStartActivity<MainActivity>()),
             ) {
-                if (!snap.onboarded) NotStarted(style) else Content(snap, style, prefs)
+                if (!snap.onboarded) NotStarted(style) else renderer.Content(snap, style, prefs)
             }
         }
     }
@@ -622,6 +632,17 @@ fun WidgetKind.widget(): GlanceAppWidget = when (this) {
     WidgetKind.STATS -> StatsWidget()
 }
 
-fun kindForProvider(className: String?): WidgetKind =
-    WidgetKind.entries.firstOrNull { it.receiver().name == className } ?: WidgetKind.STREAK
+/**
+ * The kind of a placed widget, from the system's record of its provider; when the launcher hasn't bound it yet,
+ * from Glance's own receiver map. Null when neither knows: callers must not guess (a guess of STREAK used to
+ * start a streak session on a ring widget's id).
+ */
+suspend fun kindOfAppWidget(context: Context, appWidgetId: Int): WidgetKind? {
+    val cls = android.appwidget.AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)?.provider?.className
+    WidgetKind.entries.firstOrNull { it.receiver().name == cls }?.let { return it }
+    val gm = GlanceAppWidgetManager(context)
+    return WidgetKind.entries.firstOrNull { k ->
+        runCatching { gm.getGlanceIds(k.widget()::class.java).any { gm.getAppWidgetId(it) == appWidgetId } }.getOrDefault(false)
+    }
+}
 // endregion
