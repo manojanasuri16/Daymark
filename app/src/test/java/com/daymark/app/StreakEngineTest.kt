@@ -230,4 +230,27 @@ class StreakEngineTest {
         assertEquals("Late night" to 2, d.urgeTriggers.first())
         assertEquals(3.0, d.averageUrgeIntensity!!, 0.001)
     }
+
+    @Test fun `v4 backup carries journal photos to the right entries`() {
+        val habits = listOf(HabitEntity(id = 2, name = "A", emoji = "🌱", startAt = at(2026, 1, 1)), HabitEntity(id = 5, name = "B", emoji = "🌱", startAt = at(2026, 1, 1)))
+        val journal = listOf(
+            JournalEntity(id = 10, habitId = 5, timestamp = at(2026, 1, 3), text = "no photo"),
+            JournalEntity(id = 11, habitId = 2, timestamp = at(2026, 1, 4), text = "two photos"),
+        )
+        val text = BackupCodec.encode(Settings(), habits, emptyList(), journal = journal, journalPhotos = mapOf(11L to listOf("AAA=", "BBB=")))
+        val e = BackupCodec.toEntities(BackupCodec.decode(text))
+        val withPhotos = e.journal.single { it.text == "two photos" }
+        assertEquals(listOf("AAA=", "BBB="), e.journalPhotos[withPhotos.id])
+        assertEquals(e.habits[0].id, withPhotos.habitId)
+        assertTrue(e.journalPhotos[e.journal.single { it.text == "no photo" }.id] == null)
+        assertEquals(e.journal.map { it.id }.toSet().size, e.journal.size) // ids unique
+    }
+
+    @Test fun `v3 backup without photos still restores`() {
+        val v3 = """{"app":"daymark","version":3,"exportedAt":1,"habits":[{"name":"A","startAt":${at(2026, 1, 1)},
+            "journal":[{"timestamp":${at(2026, 1, 2)},"mood":4,"text":"hi"}]}]}"""
+        val e = BackupCodec.toEntities(BackupCodec.decode(v3))
+        assertEquals("hi", e.journal.single().text)
+        assertTrue(e.journalPhotos.isEmpty())
+    }
 }

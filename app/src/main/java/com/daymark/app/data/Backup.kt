@@ -26,6 +26,8 @@ data class BackupJournal(
     val timestamp: Long,
     val mood: Int = 0,
     val text: String = "",
+    /** v4: attached photos as base64 JPEG (empty when the user chose not to back up photos). */
+    val photos: List<String> = emptyList(),
 )
 
 @Serializable
@@ -44,6 +46,7 @@ data class BackupHabit(
 )
 
 /**
+ * v4: journal photos (base64 JPEG inside each journal entry).
  * v3: money, "cut down" limit, reasons, urges and journal per tracker. v2: multiple trackers (`habits`).
  * v1 files (single journey: `habitName`, `journeyStart`, top-level `relapses`) are still accepted and become one tracker.
  * Older files simply lack the newer fields, which fall back to their defaults.
@@ -63,7 +66,7 @@ data class BackupFile(
 ) {
     companion object {
         const val APP_ID = "daymark"
-        const val VERSION = 3
+        const val VERSION = 4
     }
 }
 
@@ -84,6 +87,8 @@ object BackupCodec {
         urges: List<UrgeEntity> = emptyList(),
         journal: List<JournalEntity> = emptyList(),
         now: Long = System.currentTimeMillis(),
+        /** journal id → base64 photos, in order. */
+        journalPhotos: Map<Long, List<String>> = emptyMap(),
     ): String = json.encodeToString(
         BackupFile.serializer(),
         BackupFile(
@@ -106,7 +111,7 @@ object BackupCodec {
                         val u = it.toRecord()
                         BackupUrge(u.timestamp, u.intensity, u.triggers, u.notes)
                     },
-                    journal = journal.filter { it.habitId == h.id }.map { BackupJournal(it.timestamp, it.mood, it.text) },
+                    journal = journal.filter { it.habitId == h.id }.map { BackupJournal(it.timestamp, it.mood, it.text, journalPhotos[it.id].orEmpty()) },
                 )
             },
         ),
@@ -134,6 +139,8 @@ object BackupCodec {
         val relapses: List<RelapseEntity>,
         val urges: List<UrgeEntity>,
         val journal: List<JournalEntity>,
+        /** journal id (as assigned in [journal]) → base64 photos. */
+        val journalPhotos: Map<Long, List<String>> = emptyMap(),
     )
 
     /** Assigns fresh ids 1..n so entries can reference their habit. */
@@ -167,10 +174,13 @@ object BackupCodec {
                 )
             }
         }
-        val journal = file.habits.flatMapIndexed { i, h ->
-            h.journal.map { JournalEntity(habitId = i + 1L, timestamp = it.timestamp, mood = it.mood.coerceIn(0, 5), text = it.text) }
+        // Fresh journal ids 1..n so photos can be attached to the right entry.
+        val backed = file.habits.flatMapIndexed { i, h -> h.journal.map { i + 1L to it } }
+        val journal = backed.mapIndexed { j, (habitId, it) ->
+            JournalEntity(id = j + 1L, habitId = habitId, timestamp = it.timestamp, mood = it.mood.coerceIn(0, 5), text = it.text)
         }
-        return Entities(habits, relapses, urges, journal)
+        val photos = backed.mapIndexedNotNull { j, (_, it) -> it.photos.takeIf { p -> p.isNotEmpty() }?.let { p -> (j + 1L) to p.take(PhotoStore.MAX_PER_ENTRY) } }.toMap()
+        return Entities(habits, relapses, urges, journal, photos)
     }
 }
 

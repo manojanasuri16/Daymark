@@ -61,6 +61,8 @@ data class JournalEntry(
     /** 1..5, 0 = not recorded. */
     val mood: Int = 0,
     val text: String = "",
+    /** File names of attached photos (in Daymark's private storage), in display order. */
+    val photos: List<String> = emptyList(),
 )
 
 data class InsightsData(

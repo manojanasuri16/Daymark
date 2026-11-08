@@ -17,8 +17,13 @@ import java.util.concurrent.TimeUnit
 object BackupWriter {
     suspend fun build(c: AppContainer, password: String = ""): String {
         val habits = c.database.habitDao().getAll()
+        val settings = c.settings.current()
+        val photos = if (!settings.backupPhotos) emptyMap() else
+            c.journal.allPhotos().groupBy({ it.journalId }, { it.fileName })
+                .mapValues { (_, names) -> names.mapNotNull { PhotoStore.toBase64(c.context, it) } }
         val plain = BackupCodec.encode(
-            c.settings.current(), habits, c.relapses.allEntities(), c.urges.allEntities(), c.journal.allEntities(),
+            settings, habits, c.relapses.allEntities(), c.urges.allEntities(), c.journal.allEntities(),
+            journalPhotos = photos,
         )
         return if (password.isBlank()) plain else BackupCrypto.encrypt(plain, password)
     }

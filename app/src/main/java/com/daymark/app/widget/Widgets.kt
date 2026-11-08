@@ -203,6 +203,10 @@ private fun HeaderPill(snap: WidgetSnapshot, style: WidgetStyle) {
     }
 }
 
+/** Bitmap pixels for widget art drawn at many breakpoints: capped density keeps RemoteViews under the bitmap memory limit. */
+private fun artPx(context: Context, dp: Dp, maxDensity: Float = 1.75f): Int =
+    (dp.value * minOf(context.resources.displayMetrics.density, maxDensity)).toInt()
+
 private fun dpToPx(context: Context, dp: Dp): Int = (dp.value * context.resources.displayMetrics.density).toInt()
 
 private fun daysWord(d: Long) = if (d == 1L) "day" else "days"
@@ -218,7 +222,7 @@ private fun headerLabel(snap: WidgetSnapshot) =
 /** 1 — Streak: big day count, live h:m:s, message, milestone progress. Adapts from 2×1 to 4×3. */
 class StreakWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.STREAK
-    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 110.dp), DpSize(220.dp, 150.dp), DpSize(220.dp, 175.dp))
+    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 110.dp), DpSize(220.dp, 110.dp), DpSize(220.dp, 150.dp), DpSize(220.dp, 175.dp), DpSize(300.dp, 175.dp), DpSize(300.dp, 250.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -254,7 +258,7 @@ class StreakWidget : DaymarkGlanceWidget() {
             }
             Spacer(GlanceModifier.defaultWeight())
             Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                T("$days", (size.height.value * 0.3f).coerceIn(34f, 64f).sp, style.text, FontWeight.Bold)
+                T("$days", (size.height.value * 0.32f).coerceIn(34f, 84f).sp, style.text, FontWeight.Bold)
                 Spacer(GlanceModifier.width(6.dp))
                 Column {
                     T(daysWord(days), 14.sp, style.soft, FontWeight.Medium)
@@ -294,7 +298,7 @@ class StreakWidget : DaymarkGlanceWidget() {
 /** 2 — Progress ring toward the next milestone, with the streak in the centre. */
 class RingWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.RING
-    override val sizes = setOf(DpSize(100.dp, 100.dp), DpSize(170.dp, 170.dp), DpSize(110.dp, 150.dp), DpSize(250.dp, 110.dp))
+    override val sizes = setOf(DpSize(100.dp, 100.dp), DpSize(140.dp, 140.dp), DpSize(180.dp, 180.dp), DpSize(220.dp, 220.dp), DpSize(110.dp, 150.dp), DpSize(250.dp, 110.dp), DpSize(300.dp, 150.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -306,12 +310,13 @@ class RingWidget : DaymarkGlanceWidget() {
         val tall = !wide && size.height - size.width >= 34.dp
         val pad = 12.dp
         val ring: Dp = minOf(size.width - pad * 2, size.height - pad * 2 - if (tall) 28.dp else 0.dp).coerceAtLeast(48.dp)
-        val ringContent = @Composable {
-            Box(GlanceModifier.size(ring), contentAlignment = Alignment.Center) {
+        val ringContent = @Composable { mod: GlanceModifier ->
+            Box(mod, contentAlignment = Alignment.Center) {
                 Image(
-                    ImageProvider(WidgetArt.ring(dpToPx(context, ring), Milestones.progress(snap.stats.currentMillis), style.palette(context))),
+                    ImageProvider(WidgetArt.ring(artPx(context, ring), Milestones.progress(snap.stats.currentMillis), style.palette(context))),
                     contentDescription = "Progress to next milestone",
-                    modifier = GlanceModifier.size(ring),
+                    contentScale = androidx.glance.layout.ContentScale.Fit,
+                    modifier = GlanceModifier.fillMaxSize(),
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     T("$days", (ring.value * 0.3f).coerceIn(20f, 54f).sp, style.text, FontWeight.Bold, align = TextAlign.Center)
@@ -322,7 +327,7 @@ class RingWidget : DaymarkGlanceWidget() {
         }
         when {
             wide -> Row(GlanceModifier.fillMaxSize().padding(pad), verticalAlignment = Alignment.CenterVertically) {
-                ringContent()
+                ringContent(GlanceModifier.fillMaxHeight().width(size.height - pad * 2))
                 Spacer(GlanceModifier.width(14.dp))
                 Column(GlanceModifier.defaultWeight()) {
                     T("NEXT MILESTONE", 10.sp, style.soft, FontWeight.Medium)
@@ -337,7 +342,7 @@ class RingWidget : DaymarkGlanceWidget() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ringContent()
+                ringContent(GlanceModifier.fillMaxWidth().defaultWeight())
                 if (tall) {
                     Spacer(GlanceModifier.height(6.dp))
                     T(next?.let { "${it.title} · ${it.days - days}d" } ?: "All milestones", 11.sp, style.soft, FontWeight.Medium, align = TextAlign.Center)
@@ -350,7 +355,9 @@ class RingWidget : DaymarkGlanceWidget() {
 /** 3 — Heatmap of recent weeks: clean / slip / untracked, today outlined. */
 class HeatmapWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.HEATMAP
-    override val sizes = setOf(DpSize(180.dp, 100.dp), DpSize(250.dp, 130.dp), DpSize(300.dp, 200.dp))
+    override val sizes = setOf(
+        DpSize(180.dp, 100.dp), DpSize(220.dp, 110.dp), DpSize(250.dp, 130.dp), DpSize(270.dp, 130.dp), DpSize(250.dp, 170.dp), DpSize(270.dp, 170.dp), DpSize(270.dp, 200.dp), DpSize(270.dp, 230.dp), DpSize(300.dp, 150.dp), DpSize(300.dp, 200.dp), DpSize(330.dp, 230.dp), DpSize(360.dp, 250.dp),
+    )
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -389,9 +396,10 @@ class HeatmapWidget : DaymarkGlanceWidget() {
             }
             Image(
                 ImageProvider(
-                    WidgetArt.heatmap(dpToPx(context, gridW), dpToPx(context, gridH), weeks, snap.today, snap::status, style.palette(context)),
+                    WidgetArt.heatmap(artPx(context, gridW, 1.25f), artPx(context, gridH, 1.25f), weeks, snap.today, snap::status, style.palette(context)),
                 ),
                 contentDescription = "$clean clean days and $slips slips in the last $weeks weeks",
+                contentScale = androidx.glance.layout.ContentScale.FillBounds,
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
             )
         }
@@ -401,7 +409,7 @@ class HeatmapWidget : DaymarkGlanceWidget() {
 /** 4 — Daily motivation. Tapping the message shows another; tapping the footer opens the app. */
 class QuoteWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.QUOTE
-    override val sizes = setOf(DpSize(180.dp, 50.dp), DpSize(250.dp, 100.dp), DpSize(250.dp, 170.dp))
+    override val sizes = setOf(DpSize(180.dp, 50.dp), DpSize(250.dp, 100.dp), DpSize(250.dp, 170.dp), DpSize(300.dp, 120.dp), DpSize(300.dp, 200.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -450,7 +458,7 @@ class QuoteWidget : DaymarkGlanceWidget() {
  */
 class ActionsWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.ACTIONS
-    override val sizes = setOf(DpSize(50.dp, 50.dp), DpSize(100.dp, 100.dp), DpSize(170.dp, 70.dp), DpSize(250.dp, 70.dp), DpSize(250.dp, 110.dp))
+    override val sizes = setOf(DpSize(50.dp, 50.dp), DpSize(100.dp, 100.dp), DpSize(170.dp, 70.dp), DpSize(250.dp, 70.dp), DpSize(250.dp, 110.dp), DpSize(300.dp, 110.dp))
 
     @Composable
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
@@ -508,7 +516,7 @@ class ActionsWidget : DaymarkGlanceWidget() {
 /** 6 — Your progress: money kept, urges ridden out, clean days, best streak, and today's count in cut-down mode. */
 class StatsWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.STATS
-    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 150.dp), DpSize(250.dp, 150.dp), DpSize(250.dp, 230.dp))
+    override val sizes = setOf(DpSize(110.dp, 50.dp), DpSize(250.dp, 50.dp), DpSize(150.dp, 150.dp), DpSize(250.dp, 150.dp), DpSize(250.dp, 230.dp), DpSize(300.dp, 200.dp))
 
     private data class Stat(val icon: Int, val value: String, val label: String)
 

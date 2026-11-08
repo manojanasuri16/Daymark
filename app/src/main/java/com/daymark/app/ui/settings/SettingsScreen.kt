@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.Celebration
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Masks
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Widgets
@@ -328,6 +329,12 @@ fun SettingsScreen(
                 SettingRow(Icons.Rounded.Restore, "Restore from backup", "Replace current data with a backup file", onClick = {
                     confirmRestore = true
                 })
+                Divider()
+                SwitchRow(
+                    Icons.Rounded.Photo, "Include journal photos",
+                    "Backups get bigger with photos. Turn off to back up text only.",
+                    settings.backupPhotos,
+                ) { vm.setBackupPhotos(it) }
                 Divider()
                 SettingRow(
                     Icons.Rounded.FolderOpen, "Automatic backups",

@@ -42,10 +42,11 @@ domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngin
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
   Options.kt        triggers, situations, moods, tracker emojis and suggestions
 data/
-  Database.kt       Room v3: habits, relapses, urges, journal; DAOs; MIGRATION_1_2, MIGRATION_2_3
+  Database.kt       Room v4: habits, relapses, urges, journal, journal_photos; DAOs; MIGRATION_1_2 … MIGRATION_3_4
   Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
   SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
-  Backup.kt         JSON export/import, format v3 (habits with nested relapses/urges/journal); reads v1+v2. BackupCrypto = optional AES-GCM password
+  Backup.kt         JSON export/import, format v4 (habits with nested relapses/urges/journal, journal photos as base64); reads v1–v3. BackupCrypto = optional AES-GCM password
+  PhotoStore.kt     journal photos: files/journal_photos/<uuid>.jpg (≤1600 px, re-encoded), thumbnails, base64, orphan sweep
   AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
 notify/
   Reminders.kt      Routes (deep-link extras), local check-in + milestone notifications (WorkManager), discreet text
@@ -78,6 +79,7 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - **Widgets:** the live h:m:s is a system `Chronometer` embedded via `AndroidRemoteViews` (`res/layout/widget_chronometer.xml`), so it ticks without waking the app. Each widget stores its style and tracker in Glance state (`StyleKey`, `HabitKey`). A new widget claims `WidgetDefaults` on its first render.
 - **Cut-down mode:** a tracker with `dailyLimit > 0` counts every entry as a "use"; only the entry that takes a day over the limit is a slip. Always pass entry times through `Habit.slipTimes()` before `StreakEngine`.
 - **Discreet mode** (on by default): widgets, notifications, the QS tile and share cards never name a tracker (`WidgetSnapshot.habit` is blank, reasons hidden). Keep it that way for any new surface outside the app.
+- **Journal photos** are files; the DB only stores their names. Deleting an entry deletes its files, and `PhotoStore.sweep()` (at app start and after a restore) removes any file no row references, e.g. after a tracker is deleted. Files younger than an hour are never swept (an entry may still be open).
 - **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
 

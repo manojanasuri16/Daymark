@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 
 /** Minimal manual dependency container — the app is small enough that a DI framework isn't worth it. */
-class AppContainer(context: Context) {
+class AppContainer(val context: Context) {
     val database: DaymarkDatabase = DaymarkDatabase.build(context)
     val relapses = RelapseRepository(database)
     val habits = HabitRepository(database)
@@ -40,6 +40,10 @@ class DaymarkApp : Application() {
         // Keep home-screen widgets in sync with any data change, wherever it originates.
         container.appScope.launch {
             container.habits.ensureLegacyHabit(container.settings.current())
+            // Remove photo files no journal entry refers to any more.
+            runCatching {
+                com.daymark.app.data.PhotoStore.sweep(this@DaymarkApp, container.journal.allPhotos().map { it.fileName }.toSet())
+            }
             com.daymark.app.data.AutoBackup.schedule(this@DaymarkApp, enabled = container.settings.current().autoBackupUri.isNotEmpty())
             // Anything a widget shows: trackers (incl. money/reasons/limit), entries, urges, discreet mode.
             combine(container.habits.habits, container.relapses.relapses, container.urges.urges, container.settings.settings) { h, r, u, s ->
