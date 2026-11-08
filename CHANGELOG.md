@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1 — 2026-11-08 (versionCode 5)
+
+• Widgets always show their own layout: a progress ring no longer turns into the slim streak counter after unlocking or after a while.
+• The live h:m:s clock on widgets is never cut off.
+
+
 ## 1.3.0 — 2026-11-07 (versionCode 4)
 
 • Add up to 3 photos to a journal entry. They stay private inside Daymark, never in your gallery, and are included in backups (you can turn that off)
