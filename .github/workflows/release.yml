@@ -17,9 +17,6 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      # Optional. Add this secret once your Play Console account exists to upload builds automatically.
-      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v7
 
@@ -59,12 +56,12 @@ jobs:
           fi
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
 
-      - name: Test, lint and build signed APK + AAB
+      - name: Test, lint and build signed APK
         env:
           ORG_GRADLE_PROJECT_DAYMARK_STORE_PASSWORD: ${{ secrets.DAYMARK_STORE_PASSWORD }}
           ORG_GRADLE_PROJECT_DAYMARK_KEY_ALIAS: ${{ secrets.DAYMARK_KEY_ALIAS }}
           ORG_GRADLE_PROJECT_DAYMARK_KEY_PASSWORD: ${{ secrets.DAYMARK_KEY_PASSWORD }}
-        run: ./gradlew testDebugUnitTest lintRelease assembleRelease bundleRelease
+        run: ./gradlew testDebugUnitTest lintRelease assembleRelease
 
       - name: Verify it is signed with the Daymark key (not the debug key)
         run: |
@@ -76,7 +73,6 @@ jobs:
         run: |
           mkdir dist
           cp app/build/outputs/apk/release/app-release.apk "dist/Daymark-v${{ steps.version.outputs.name }}.apk"
-          cp app/build/outputs/bundle/release/app-release.aab "dist/Daymark-v${{ steps.version.outputs.name }}-playstore.aab"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -93,19 +89,8 @@ jobs:
             echo "## Install"
             echo "Download **Daymark-v${{ steps.version.outputs.name }}.apk** on your phone and open it. Updates install over the previous version and keep your data."
             echo
-            echo "_The .aab file is for Google Play uploads and can't be installed directly._"
-            echo
             echo "## What's new"
             cat "${{ steps.version.outputs.notes }}"
           } > release-notes.md
           gh release create "${{ github.ref_name }}" dist/* --title "Daymark ${{ steps.version.outputs.name }}" --notes-file release-notes.md
 
-      - name: Upload to Google Play (internal testing, as a draft)
-        if: github.ref_type == 'tag' && env.PLAY_JSON != ''
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.daymark.app
-          releaseFiles: dist/*.aab
-          track: internal
-          status: draft

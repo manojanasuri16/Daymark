@@ -47,9 +47,9 @@ Download `Daymark-vX.Y.Z.apk` from the [Releases](../../releases) page and open 
 - **[CLAUDE.md](CLAUDE.md):** architecture, rules and recipes. Claude Code reads it automatically.
 - **Release:** run `scripts/release.sh X.Y.Z`. GitHub Actions then builds, signs and publishes the release.
 
-## Google Play
+## Distribution
 
-See [docs/PLAY_STORE.md](docs/PLAY_STORE.md) for the publishing checklist. Store assets live in `fastlane/metadata/android/en-US/`, and the privacy policy is in [docs/privacy-policy.md](docs/privacy-policy.md).
+Daymark is distributed through AppDrop (listing in `appdrop.json` and `appdrop/`, APKs from GitHub Releases). The privacy policy is in [docs/privacy-policy.md](docs/privacy-policy.md).
 
 ## Tech
 
@@ -70,7 +70,6 @@ app/src/main/java/com/daymark/app/
 ```bash
 ./gradlew testDebugUnitTest assembleDebug   # debug APK
 ./gradlew assembleRelease                   # minified release APK
-./gradlew bundleRelease                     # Play Store app bundle (.aab)
 ```
 
 Release signing reads `DAYMARK_STORE_FILE`, `DAYMARK_STORE_PASSWORD`, `DAYMARK_KEY_ALIAS` and `DAYMARK_KEY_PASSWORD` from `~/.gradle/gradle.properties`. If they're absent, it falls back to the debug key.

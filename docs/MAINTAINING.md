@@ -12,11 +12,10 @@ This guide is for coming back to the project after a long break. Each section is
 |---|---|
 | App code | `app/src/main/java/com/daymark/app/` (a map is in `CLAUDE.md`) |
 | Version number | `app/build.gradle.kts` → `versionCode` and `versionName` |
-| Release notes shown on Play and GitHub | `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` |
+| Release notes shown on GitHub | `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` |
 | History of changes | `CHANGELOG.md` |
-| Store text, icon and screenshots | `fastlane/metadata/android/en-US/` |
+| AppDrop listing (text, icon, screenshots) | `appdrop.json` and `appdrop/` |
 | Privacy policy | `docs/privacy-policy.md` |
-| Play Store steps | `docs/PLAY_STORE.md` |
 | Signing key (**not in the repo**) | `~/.config/daymark/release.jks` + passwords in `~/.gradle/gradle.properties` |
 | Android SDK | `~/android-sdk` |
 | Automation | `.github/workflows/` (`build.yml` runs on every push to `main`; `release.yml` runs on version tags) |
@@ -31,10 +30,10 @@ This guide is for coming back to the project after a long break. Each section is
    ```bash
    scripts/release.sh 1.2.0
    ```
-   The first run creates `fastlane/metadata/android/en-US/changelogs/<code>.txt` and stops. Write 2–4 friendly bullet points about what changed (500 characters at most), then run the same command again.
+   The first run creates `fastlane/metadata/android/en-US/changelogs/<code>.txt` and stops. Write 2–4 friendly bullet points about what changed (keep it short), then run the same command again.
 4. The script bumps the version, updates `CHANGELOG.md`, runs the tests, commits, tags and pushes.
 5. GitHub then builds, signs and publishes the release, which takes about 10 minutes. Watch it with `gh run watch` or in the **Actions** tab.
-6. When it's done, the APK is on the **Releases** page. For Google Play, upload the `.aab` from that release in Play Console (or let CI do it once `PLAY_SERVICE_ACCOUNT_JSON` is set; see below).
+6. When it's done, the APK is on the **Releases** page. Run `appdrop sync` (or `appdrop publish` if the listing changed) to update AppDrop.
 
 **If the release workflow fails:**
 - *"Secret DAYMARK_KEYSTORE_BASE64 is missing":* run `scripts/setup-signing-secrets.sh` once, then re-run the failed workflow from the Actions tab.
@@ -59,7 +58,7 @@ The emulator is slow for its first minute and may show "System UI isn't respondi
 adb install -r app/build/outputs/apk/release/app-release.apk   # phone connected over USB with USB debugging on
 ```
 
-Use the **release** build on your own phone, because it's signed like the GitHub and Play versions, so your data is kept. A debug build would need an uninstall, which deletes your data.
+Use the **release** build on your own phone, because it's signed like the GitHub version, so your data is kept. A debug build would need an uninstall, which deletes your data.
 
 ## Library updates (Dependabot pull requests)
 
@@ -73,7 +72,7 @@ Once a month, GitHub opens pull requests that update libraries. For each one:
 
 ## Yearly Android requirement
 
-Google Play requires apps to target a recent Android version, with a new deadline each August, and Play Console emails you beforehand. To comply:
+Android raises the minimum target version every year. To keep the app installable on new phones:
 
 1. Raise `compileSdk` and `targetSdk` in `app/build.gradle.kts`.
 2. Install the new SDK platform: `~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-NN"`.
@@ -93,20 +92,13 @@ This is the riskiest kind of change, because a mistake can wipe users' history. 
 
 ## Signing key: keep it safe
 
-- Without the key, you can't update the GitHub version, and Play updates need a slow key-reset request.
+- Without the key, you can't update the GitHub version.
 - Keep a copy of `~/.config/daymark/release.jks` **and** `~/.gradle/gradle.properties` somewhere outside this laptop, such as a password manager or an encrypted USB drive.
 
 **Moving to a new computer:**
 1. Copy both files back to the same paths.
 2. Install the Android SDK to `~/android-sdk`.
 3. Run `./gradlew assembleRelease` to check that signing works.
-
-## Turning on automatic Play uploads (after your Play account exists)
-
-1. In Google Cloud, create a service account and download its JSON key.
-2. In Play Console, go to **Users and permissions**, invite the service account's email, and grant it release permissions for Daymark.
-3. Add the JSON to GitHub: `gh secret set PLAY_SERVICE_ACCOUNT_JSON < key.json`, then delete the local file.
-4. From then on, every release tag also uploads the AAB to Play's **internal testing** track as a draft. Review it and roll it out in Play Console.
 
 ## Free plan limits (private repo)
 
@@ -117,5 +109,5 @@ GitHub Actions includes 2,000 minutes a month. A build takes about 8 minutes, so
 - "Add a feature: daily reminder notification at a time I choose"
 - "Users say the heatmap widget is blank on Samsung. Investigate"
 - "Release 1.2.0 with the changes since 1.1.0"
-- "Prepare the Play Store update for the new features (screenshots and listing text)"
+- "Update the AppDrop listing for the new features (screenshots and description)"
 - "Explain how streaks are calculated"

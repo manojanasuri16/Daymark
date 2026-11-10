@@ -9,17 +9,17 @@
   "packageName": "com.daymark.app",
   "repo": "manojanasuri16/Daymark",
   "visibility": "public",
-  "icon": "fastlane/metadata/android/en-US/images/icon.png",
+  "icon": "appdrop/icon.png",
   "screenshots": [
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/1_today.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/2_calendar.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/3_insights.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/4_log.png",
+    "appdrop/screenshots/1_today.png",
+    "appdrop/screenshots/2_calendar.png",
+    "appdrop/screenshots/3_insights.png",
+    "appdrop/screenshots/4_log.png",
     "appdrop/screenshots/journal.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/5_home.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/6_widgets.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/7_dark.png",
-    "fastlane/metadata/android/en-US/images/phoneScreenshots/8_settings.png"
+    "appdrop/screenshots/5_home.png",
+    "appdrop/screenshots/6_widgets.png",
+    "appdrop/screenshots/7_dark.png",
+    "appdrop/screenshots/8_settings.png"
   ],
   "descriptionFile": "appdrop/description.md",
   "assetPattern": "Daymark-*.apk"

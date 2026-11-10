@@ -1,11 +1,12 @@
 # Daymark: guide for Claude (and humans)
 
-Daymark is a private, offline-first Android app for habit recovery and streak tracking. It has one module (`:app`), package `com.daymark.app`, and is written in Kotlin with Jetpack Compose (Material 3), Room, DataStore and Glance widgets. A human-friendly runbook is in `docs/MAINTAINING.md`, and Play Store steps are in `docs/PLAY_STORE.md`.
+Daymark is a private, offline-first Android app for habit recovery and streak tracking. It has one module (`:app`), package `com.daymark.app`, and is written in Kotlin with Jetpack Compose (Material 3), Room, DataStore and Glance widgets. A human-friendly runbook is in `docs/MAINTAINING.md`.
 
 ## Non-negotiables
 
 - **Privacy:** never add the `INTERNET` permission, analytics, crash SDKs, ads or accounts. Data lives only on the device. The store listing, privacy policy and Data-safety form all promise this.
 - **Tone:** say "slip", never "failure" or "relapse" in UI copy. Keep it supportive and non-judgmental. A slip must never erase history: longest streak, total clean days and achievements are always kept.
+- **Distribution is AppDrop only** (`appdrop.json`, `appdrop/`, APKs from GitHub Releases). No Play Store work.
 - **Never change** `applicationId` (`com.daymark.app`) or the signing key. Doing so would break every user's updates.
 - **`versionCode` must go up with every release** (`scripts/release.sh` does this).
 - **Never rename widget receivers.** `DaymarkWidgetReceiver`, `RingWidgetReceiver`, `HeatmapWidgetReceiver`, `QuoteWidgetReceiver`, `ActionsWidgetReceiver` and `StatsWidgetReceiver` are referenced by widgets already placed on users' home screens.
@@ -23,7 +24,7 @@ export ANDROID_HOME=~/android-sdk          # SDK lives here (not in PATH)
 ./gradlew testDebugUnitTest                # unit tests (pure Kotlin: domain + backup)
 ./gradlew lintRelease                      # must have 0 errors (the release CI runs it)
 ./gradlew assembleDebug                    # debug APK → app/build/outputs/apk/debug/
-./gradlew assembleRelease bundleRelease    # signed release APK + Play AAB
+./gradlew assembleRelease                  # signed release APK
 scripts/emulator.sh [release]              # boot headless emulator + install + launch
 scripts/tap.sh "Text on screen" [n]        # tap UI by text (uiautomator)
 adb shell am broadcast -n com.daymark.app/.DemoSeedReceiver   # debug only: 3 demo trackers
@@ -140,11 +141,10 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - The Gradle wrapper's `networkTimeout` was raised to 120 s because the default 10 s times out here.
 - Under load the emulator shows "isn't responding" dialogs for System UI or the launcher. That's the emulator, not the app. Wait about 60 s after boot before testing.
 - Debug and release builds have different signatures, so switching between them on a device needs an uninstall (`scripts/emulator.sh` handles it).
-- Play screenshots must be at most 2:1. The emulator's 1080×2400 shots are padded to 1200×2400.
+- AppDrop screenshots must be at most 2:1. The emulator's 1080×2400 shots are padded to 1200×2400.
 - `.agents/` and `.claude/` (the installed `apple-design` skill) are tooling and are git-ignored.
 
 ## Signing and secrets
 
 - The release key is `~/.config/daymark/release.jks`, alias `daymark`. Its passwords are in `~/.gradle/gradle.properties` (`DAYMARK_*`). Both are outside the repo; never commit them.
 - CI signs builds using the secrets `DAYMARK_KEYSTORE_BASE64`, `DAYMARK_STORE_PASSWORD`, `DAYMARK_KEY_ALIAS` and `DAYMARK_KEY_PASSWORD`. Set them with `scripts/setup-signing-secrets.sh`.
-- `PLAY_SERVICE_ACCOUNT_JSON` is optional. If present, releases are also uploaded to Play's internal track as drafts.

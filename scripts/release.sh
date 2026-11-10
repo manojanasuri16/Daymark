@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cut a release:  scripts/release.sh 1.2.0
 #   1. bumps versionName to 1.2.0 and versionCode by +1 in app/build.gradle.kts
-#   2. makes sure Play release notes exist (fastlane/.../changelogs/<versionCode>.txt), creating a template if not
+#   2. makes sure release notes exist (fastlane/.../changelogs/<versionCode>.txt), creating a template if not
 #   3. runs unit tests, commits, tags v1.2.0 and pushes → GitHub Actions builds, signs and publishes the release
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,10 +19,9 @@ if [ ! -s "$NOTES" ]; then
   mkdir -p "$(dirname "$NOTES")"
   printf 'New in %s:\n• \n' "$NEW" > "$NOTES"
   echo "Wrote a template at $NOTES"
-  echo "→ Fill in what changed (max 500 characters, shown on Google Play and GitHub), then run this again."
+  echo "→ Fill in what changed (shown on GitHub), then run this again."
   exit 1
 fi
-[ "$(wc -c < "$NOTES")" -le 500 ] || { echo "$NOTES is over Play's 500-character limit."; exit 1; }
 grep -q '^• *$' "$NOTES" && { echo "$NOTES still has an empty bullet — finish it first."; exit 1; }
 
 # Only the release notes (and CHANGELOG.md) may be uncommitted.
