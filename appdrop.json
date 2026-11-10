@@ -1,0 +1,26 @@
+{
+  "slug": "daymark",
+  "kind": "android",
+  "name": "Daymark",
+  "tagline": "A calm, private streak tracker for habit recovery. Offline, no account, no ads.",
+  "category": "Health & Fitness",
+  "developer": "Manoj Anasuri",
+  "accentColor": "#0a84ff",
+  "packageName": "com.daymark.app",
+  "repo": "manojanasuri16/Daymark",
+  "visibility": "public",
+  "icon": "fastlane/metadata/android/en-US/images/icon.png",
+  "screenshots": [
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/1_today.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/2_calendar.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/3_insights.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/4_log.png",
+    "appdrop/screenshots/journal.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/5_home.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/6_widgets.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/7_dark.png",
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/8_settings.png"
+  ],
+  "descriptionFile": "appdrop/description.md",
+  "assetPattern": "Daymark-*.apk"
+}
