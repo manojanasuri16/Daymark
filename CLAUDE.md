@@ -48,7 +48,7 @@ data/
   Database.kt       Room v5: habits (kind, goal, schedule, reminder columns), relapses, urges, journal, journal_photos, completions (one row per habit per day); DAOs; MIGRATION_1_2 … MIGRATION_4_5
   Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
   SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
-  Backup.kt         JSON export/import, format v5 (habits with nested completions, with nested relapses/urges/journal, journal photos as base64); reads v1–v3. BackupCrypto = optional AES-GCM password
+  Backup.kt         JSON export/import, format v5 (habits with nested completions, with nested relapses/urges/journal, journal photos as base64); reads v1–v4. BackupCrypto = optional AES-GCM password
   PhotoStore.kt     journal photos: files/journal_photos/<uuid>.jpg (≤1600 px, re-encoded), thumbnails, base64, orphan sweep
   AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
 notify/
@@ -86,7 +86,6 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - **Journal photos** are files; the DB only stores their names. Deleting an entry deletes its files, and `PhotoStore.sweep()` (at app start and after a restore) removes any file no row references, e.g. after a tracker is deleted. Files younger than an hour are never swept (an entry may still be open).
 - **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
-
 - **Build habits:** `Habit.isBuild`. Progress is a `completions` row per habit per day (amount in the goal unit; goal 0 = check-off). Screens branch on kind (`BuildDashboard`, `BuildCalendar`, `BuildInsightsScreen`, `BuildProgressScreen`); `MainViewModel.stats` maps build streaks into `StreakStats` so streak-shaped UI and widgets still work. Kind can't be changed after creation. Never run break-habit maths (StreakEngine/relapses) on a build habit.
 
 ## Recipes

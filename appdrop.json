@@ -11,12 +11,12 @@
   "visibility": "public",
   "icon": "appdrop/icon.png",
   "screenshots": [
-    "appdrop/screenshots/1_today.png",
-    "appdrop/screenshots/2_calendar.png",
-    "appdrop/screenshots/3_insights.png",
-    "appdrop/screenshots/4_log.png",
-    "appdrop/screenshots/journal.png",
-    "appdrop/screenshots/5_home.png",
+    "appdrop/screenshots/v14_1_build_today.png",
+    "appdrop/screenshots/v14_2_build_stats.png",
+    "appdrop/screenshots/v14_7_build_editor.png",
+    "appdrop/screenshots/v14_3_build_calendar.png",
+    "appdrop/screenshots/v14_4_build_insights.png",
+    "appdrop/screenshots/v14_6_break_today.png",
     "appdrop/screenshots/6_widgets.png",
     "appdrop/screenshots/7_dark.png",
     "appdrop/screenshots/8_settings.png"
