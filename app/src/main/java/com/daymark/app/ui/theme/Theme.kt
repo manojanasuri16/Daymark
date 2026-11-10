@@ -33,6 +33,8 @@ data class DaymarkColors(
     val heroGradientTop: Color,
     val heroGradientBottom: Color,
     val isDark: Boolean,
+    /** Build habits: a day with some, but not all, of the goal. */
+    val partial: Color = Color(0xFFE5A94B),
 )
 
 /** One accent = primary family + hero gradient, for light and dark. Surfaces stay neutral for every accent. */
@@ -119,6 +121,7 @@ private fun extras(a: Accent, dark: Boolean) = DaymarkColors(
     heroGradientTop = Color(if (dark) a.heroDark.first else a.heroLight.first),
     heroGradientBottom = Color(if (dark) a.heroDark.second else a.heroLight.second),
     isDark = dark,
+    partial = if (dark) Color(0xFFE8B964) else Color(0xFFE0A03A),
 )
 
 val LocalDaymarkColors = staticCompositionLocalOf { extras(Accent.DEFAULT, false) }

@@ -11,6 +11,9 @@ import com.daymark.app.data.BackupWriter
 import com.daymark.app.data.InvalidBackupException
 import com.daymark.app.data.Settings
 import com.daymark.app.data.ThemeMode
+import com.daymark.app.domain.BuildEngine
+import com.daymark.app.domain.BuildStats
+import com.daymark.app.domain.Completion
 import com.daymark.app.domain.Habit
 import com.daymark.app.domain.InsightsData
 import com.daymark.app.domain.InsightsEngine
@@ -19,6 +22,7 @@ import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.UrgeRecord
 import com.daymark.app.domain.StreakEngine
 import com.daymark.app.domain.StreakStats
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -34,7 +39,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** A tracker plus its live stats, for the overview. */
-data class HabitSummary(val habit: Habit, val stats: StreakStats)
+/**
+ * A tracker plus its live stats, for the overview. For build habits [stats] is the streak mapped to [StreakStats]
+ * (so streak-shaped UI keeps working) and [build] carries the full picture.
+ */
+data class HabitSummary(val habit: Habit, val stats: StreakStats, val build: BuildStats? = null)
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val c = app.container
@@ -85,19 +94,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), System.currentTimeMillis())
 
-    val stats: StateFlow<StreakStats> = combine(selectedHabit, relapses, now) { h, r, t ->
-        if (h == null) StreakStats.EMPTY else StreakEngine.compute(h.startAt, h.slipTimes(r.map { it.timestamp }), t)
+    /** Daily progress of every build habit. */
+    val allCompletions: StateFlow<List<Completion>> = c.completions.completions
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Progress of the selected tracker (empty for break habits). */
+    val completions: StateFlow<List<Completion>> = combine(selectedHabit, allCompletions) { h, all ->
+        if (h == null || !h.isBuild) emptyList() else all.filter { it.habitId == h.id }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** The local date, re-emitting only when it changes (midnight). */
+    private val today: StateFlow<LocalDate> = flow {
+        while (true) { emit(LocalDate.now()); delay(30_000) }
+    }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, LocalDate.now())
+
+    private fun buildStatsOf(h: Habit, all: List<Completion>, day: LocalDate): BuildStats =
+        BuildEngine.compute(h.startAt, h.scheduleDays, h.goalTarget, all.filter { it.habitId == h.id }, day)
+
+    /** Build stats for the selected tracker; null when a break habit is selected. */
+    val buildStats: StateFlow<BuildStats?> = combine(selectedHabit, allCompletions, today) { h, all, day ->
+        if (h == null || !h.isBuild) null else buildStatsOf(h, all, day)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Streak-shaped stats for the selected tracker (for build habits: streak, longest, total done, misses). */
+    val stats: StateFlow<StreakStats> = combine(selectedHabit, relapses, allCompletions, now) { h, r, comp, t ->
+        when {
+            h == null -> StreakStats.EMPTY
+            h.isBuild -> buildStatsOf(h, comp, LocalDate.now()).asStreakStats(t)
+            else -> StreakEngine.compute(h.startAt, h.slipTimes(r.map { it.timestamp }), t)
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StreakStats.EMPTY)
 
-    val overview: StateFlow<List<HabitSummary>> = combine(habits, allRelapses, now) { hs, r, t ->
-        hs.orEmpty().map { h -> HabitSummary(h, StreakEngine.compute(h.startAt, h.slipTimes(r.filter { it.habitId == h.id }.map { it.timestamp }), t)) }
+    val overview: StateFlow<List<HabitSummary>> = combine(habits, allRelapses, allCompletions, now) { hs, r, comp, t ->
+        hs.orEmpty().map { h ->
+            if (h.isBuild) {
+                val b = buildStatsOf(h, comp, LocalDate.now())
+                HabitSummary(h, b.asStreakStats(t), b)
+            } else HabitSummary(h, StreakEngine.compute(h.startAt, h.slipTimes(r.filter { it.habitId == h.id }.map { it.timestamp }), t))
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Recomputed on data change (and hourly) rather than every second. */
     private val hourly = flow { while (true) { emit(System.currentTimeMillis()); delay(3_600_000) } }
 
     val insights: StateFlow<InsightsData?> = combine(selectedHabit, relapses, urges, hourly) { h, r, u, t ->
-        if (h == null) null
+        if (h == null || h.isBuild) null
         else InsightsEngine.compute(r, StreakEngine.spans(h.startAt, h.slipTimes(r.map { it.timestamp }), t), t, urges = u)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -115,18 +156,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         c.settings.completeOnboarding(id)
     }
 
+    /** Onboarding with a fully configured first habit (either kind). */
+    fun completeOnboarding(habit: Habit) = viewModelScope.launch {
+        val id = c.habits.save(habit.copy(name = habit.name.trim()))
+        c.settings.completeOnboarding(id)
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
+    }
+
     fun selectHabit(id: Long) = viewModelScope.launch { c.settings.setSelectedHabit(id) }
 
     /** Creates or updates a tracker; new trackers become the selected one. */
     fun saveHabit(habit: Habit) = viewModelScope.launch {
         val id = c.habits.save(habit.copy(name = habit.name.trim()))
         if (habit.id == 0L) c.settings.setSelectedHabit(id)
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
     }
 
     fun deleteHabit(habit: Habit) = viewModelScope.launch {
         c.habits.delete(habit.id)
         if (settings.value?.selectedHabitId == habit.id) c.settings.setSelectedHabit(0)
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
         _events.emit("Deleted ${habit.displayName}")
+    }
+
+    /**
+     * Adds [delta] to [date]'s progress on a build habit (negative to undo). Reaching the goal gives a light haptic-worthy event;
+     * notification actions use the same repository call, so app and notifications always agree.
+     */
+    fun logProgress(habit: Habit, delta: Double, date: LocalDate = LocalDate.now()) = viewModelScope.launch {
+        c.completions.add(habit.id, date.toEpochDay(), delta)
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
+    }
+
+    /** Sets the day's total outright (e.g. typing "2.5 L"). 0 clears the day. */
+    fun setProgress(habit: Habit, amount: Double, date: LocalDate = LocalDate.now()) = viewModelScope.launch {
+        c.completions.set(habit.id, date.toEpochDay(), amount)
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
+    }
+
+    /** Simple check-off habits: flips [date] between done and not done. */
+    fun toggleDone(habit: Habit, date: LocalDate = LocalDate.now()) = viewModelScope.launch {
+        val done = BuildEngine.isDone(c.completions.amount(habit.id, date.toEpochDay()), habit.goalTarget)
+        c.completions.set(habit.id, date.toEpochDay(), if (done) 0.0 else BuildEngine.effectiveTarget(habit.goalTarget))
+        com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
     }
 
     fun saveRelapse(record: RelapseRecord) = viewModelScope.launch { c.relapses.save(record) }
@@ -222,7 +294,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     data.mapNotNull { com.daymark.app.data.PhotoStore.fromBase64(app, it) }
                         .mapIndexed { i, name -> com.daymark.app.data.JournalPhotoEntity(journalId = journalId, fileName = name, sortOrder = i) }
                 }
-                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows)
+                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows, e.completions)
                 // Old photos aren't referenced any more.
                 com.daymark.app.data.PhotoStore.sweep(app, photoRows.map { it.fileName }.toSet(), now = Long.MAX_VALUE)
                 val current = c.settings.current()

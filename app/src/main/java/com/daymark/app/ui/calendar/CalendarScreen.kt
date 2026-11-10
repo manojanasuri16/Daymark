@@ -89,6 +89,10 @@ fun CalendarScreen(
     onEditJournal: (JournalEntry) -> Unit = {},
 ) {
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
+    habit?.takeIf { it.isBuild }?.let { h ->
+        BuildCalendarScreen(vm, contentPadding, h, onJournalForDay)
+        return
+    }
     val relapses by vm.relapses.collectAsStateWithLifecycle()
     val urges by vm.urges.collectAsStateWithLifecycle()
     val journal by vm.journal.collectAsStateWithLifecycle()
@@ -230,10 +234,10 @@ fun CalendarScreen(
     }
 }
 
-private fun weekStart(): DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+internal fun weekStart(): DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
 
 @Composable
-private fun WeekdayHeader() {
+internal fun WeekdayHeader() {
     val first = weekStart()
     Row(Modifier.fillMaxWidth()) {
         (0 until 7).forEach { i ->
@@ -328,7 +332,7 @@ private fun Legend() {
 }
 
 @Composable
-private fun LegendItem(color: Color, label: String) {
+internal fun LegendItem(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(color = color, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
         Spacer(Modifier.width(6.dp))

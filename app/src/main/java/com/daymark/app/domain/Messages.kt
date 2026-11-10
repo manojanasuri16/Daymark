@@ -43,4 +43,45 @@ object Messages {
         in 17..21 -> "Good evening"
         else -> "Hello, night owl"
     }
+
+    // ---- Build-a-habit copy -------------------------------------------------------------------
+
+    val buildQuotes = listOf(
+        "Small steps, repeated, become who you are.",
+        "A missed day doesn't undo your progress.",
+        "Consistency beats intensity.",
+        "You only have to do today's part.",
+        "Showing up counts, even in a small way.",
+        "Every check-in is a vote for the person you're becoming.",
+        "Start small. Keep it easy. Let it grow.",
+        "Rest days are part of the plan.",
+        "Progress, not perfection.",
+        "Be proud of the days you showed up.",
+    )
+
+    fun buildQuote(date: LocalDate): String =
+        buildQuotes[(date.toEpochDay() % buildQuotes.size).toInt().let { if (it < 0) it + buildQuotes.size else it }]
+
+    /** The state line under the build hero. [remaining] is already formatted with its unit, e.g. "750 ml". */
+    fun buildState(done: Boolean, hasGoal: Boolean, started: Boolean, restDay: Boolean, remaining: String, seed: Int): String = when {
+        done && restDay -> "Bonus day. Lovely."
+        done -> pick(seed, "Goal reached. Well done 🎉", "All done for today 🎉", "Done. That's a win 🎉")
+        restDay -> pick(seed, "Rest day. Enjoy it.", "Nothing planned today. Rest easy.")
+        !hasGoal -> pick(seed, "Ready when you are.", "One tap and today is done.")
+        !started -> pick(seed, "A fresh day. $remaining to go.", "Whenever you're ready: $remaining.")
+        else -> pick(seed, "Nice. $remaining to go.", "Going well. $remaining left.", "Keep it up. $remaining to go.")
+    }
+
+    fun buildStreak(days: Int, longest: Int): String = when {
+        days <= 0 && longest > 0 -> "A fresh start. Your best of $longest ${if (longest == 1) "day" else "days"} is still yours."
+        days <= 0 -> "Your first day is whenever you begin."
+        days == 1 -> "Day one is the hardest. Nicely done."
+        days < 7 -> "Building momentum."
+        days < 30 -> "A real rhythm is forming."
+        else -> "This is part of who you are now."
+    }
+
+    const val BUILD_MISS_NOTE = "A missed day doesn't undo your progress."
+
+    private fun pick(seed: Int, vararg options: String): String = options[((seed % options.size) + options.size) % options.size]
 }

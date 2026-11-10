@@ -134,7 +134,7 @@ class MainActivity : FragmentActivity() {
                         ) { gate ->
                             when (gate) {
                                 Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
-                                Gate.ONBOARDING -> OnboardingScreen { name, emoji, start -> vm.completeOnboarding(name, emoji, start) }
+                                Gate.ONBOARDING -> OnboardingScreen { habit -> vm.completeOnboarding(habit) }
                                 Gate.LOADING -> Box(Modifier.fillMaxSize())
                                 Gate.APP -> DaymarkNav(vm, s, pendingRoute) { pendingRoute = null }
                             }
@@ -349,6 +349,12 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
             ) { entry ->
                 val id = entry.arguments?.getLong("id") ?: 0L
                 val day = entry.arguments?.getLong("day")?.takeIf { it != Long.MIN_VALUE }
+                val logHabit by vm.selectedHabit.collectAsStateWithLifecycle()
+                // Build habits log progress, not slips.
+                if (logHabit?.isBuild == true && id == 0L) {
+                    com.daymark.app.ui.log.BuildProgressScreen(vm = vm, onClose = { nav.popBackStack() })
+                    return@composable
+                }
                 LogScreen(
                     vm = vm,
                     editId = id,

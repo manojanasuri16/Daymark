@@ -1,5 +1,8 @@
 package com.daymark.app.data
 
+import com.daymark.app.domain.HabitKind
+import com.daymark.app.domain.ReminderConfig
+import com.daymark.app.domain.ReminderMode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -43,13 +46,35 @@ data class BackupHabit(
     val reasons: List<String> = emptyList(),
     val urges: List<BackupUrge> = emptyList(),
     val journal: List<BackupJournal> = emptyList(),
+    // v5: "build a habit"
+    /** 0 = break a habit, 1 = build a habit ([HabitKind.id]). */
+    val kind: Int = 0,
+    val goalTarget: Double = 0.0,
+    val goalUnit: String = "",
+    val goalStep: Double = 1.0,
+    /** Weekly schedule bitmask, bit 0 = Monday (see `Schedule`). */
+    val scheduleDays: Int = 127,
+    /** [ReminderMode] id: 0 none, 1 every N minutes, 2 fixed times. */
+    val reminderMode: Int = 0,
+    val reminderInterval: Int = 60,
+    /** Minutes after midnight. */
+    val reminderStart: Int = 480,
+    val reminderEnd: Int = 1260,
+    /** Minutes after midnight, for [ReminderMode.TIMES]. */
+    val reminderTimes: List<Int> = emptyList(),
+    val completions: List<BackupCompletion> = emptyList(),
 )
 
+/** v5: one day's progress on a build habit. [amount] is in the habit's goal unit (1 for a simple check-off). */
+@Serializable
+data class BackupCompletion(val epochDay: Long, val amount: Double)
+
 /**
+ * v5: "build a habit": kind, daily goal, weekly schedule, reminders and daily completions per tracker.
  * v4: journal photos (base64 JPEG inside each journal entry).
  * v3: money, "cut down" limit, reasons, urges and journal per tracker. v2: multiple trackers (`habits`).
  * v1 files (single journey: `habitName`, `journeyStart`, top-level `relapses`) are still accepted and become one tracker.
- * Older files simply lack the newer fields, which fall back to their defaults.
+ * Older files simply lack the newer fields, which fall back to their defaults (v1–v4 decode as break-a-habit trackers).
  */
 @Serializable
 data class BackupFile(
@@ -66,7 +91,7 @@ data class BackupFile(
 ) {
     companion object {
         const val APP_ID = "daymark"
-        const val VERSION = 4
+        const val VERSION = 5
     }
 }
 
@@ -89,6 +114,7 @@ object BackupCodec {
         now: Long = System.currentTimeMillis(),
         /** journal id → base64 photos, in order. */
         journalPhotos: Map<Long, List<String>> = emptyMap(),
+        completions: List<CompletionEntity> = emptyList(),
     ): String = json.encodeToString(
         BackupFile.serializer(),
         BackupFile(
@@ -112,6 +138,17 @@ object BackupCodec {
                         BackupUrge(u.timestamp, u.intensity, u.triggers, u.notes)
                     },
                     journal = journal.filter { it.habitId == h.id }.map { BackupJournal(it.timestamp, it.mood, it.text, journalPhotos[it.id].orEmpty()) },
+                    kind = habit.kind.id,
+                    goalTarget = habit.goalTarget,
+                    goalUnit = habit.goalUnit,
+                    goalStep = habit.goalStep,
+                    scheduleDays = habit.scheduleDays,
+                    reminderMode = habit.reminder.mode.id,
+                    reminderInterval = habit.reminder.intervalMinutes,
+                    reminderStart = habit.reminder.activeStart,
+                    reminderEnd = habit.reminder.activeEnd,
+                    reminderTimes = habit.reminder.times,
+                    completions = completions.filter { it.habitId == h.id }.map { BackupCompletion(it.epochDay, it.amount) },
                 )
             },
         ),
@@ -141,18 +178,39 @@ object BackupCodec {
         val journal: List<JournalEntity>,
         /** journal id (as assigned in [journal]) → base64 photos. */
         val journalPhotos: Map<Long, List<String>> = emptyMap(),
+        val completions: List<CompletionEntity> = emptyList(),
     )
 
     /** Assigns fresh ids 1..n so entries can reference their habit. */
     fun toEntities(file: BackupFile): Entities {
+        fun finite(value: Double, fallback: Double) = if (value.isFinite()) value else fallback
         val habits = file.habits.mapIndexed { i, h ->
             HabitEntity.from(
                 com.daymark.app.domain.Habit(
                     id = i + 1L, name = h.name, emoji = h.emoji, startAt = h.startAt, sortOrder = i,
-                    spendAmount = h.spendAmount.coerceAtLeast(0.0), spendPeriodDays = h.spendPeriodDays.coerceAtLeast(1),
+                    spendAmount = finite(h.spendAmount, 0.0).coerceAtLeast(0.0), spendPeriodDays = h.spendPeriodDays.coerceAtLeast(1),
                     dailyLimit = h.dailyLimit.coerceAtLeast(0), reasons = h.reasons,
+                    kind = HabitKind.of(h.kind),
+                    goalTarget = finite(h.goalTarget, 0.0).coerceAtLeast(0.0),
+                    goalUnit = h.goalUnit,
+                    goalStep = finite(h.goalStep, 1.0).takeIf { it > 0 } ?: 1.0,
+                    scheduleDays = h.scheduleDays,
+                    reminder = ReminderConfig(
+                        mode = ReminderMode.of(h.reminderMode),
+                        intervalMinutes = h.reminderInterval,
+                        activeStart = h.reminderStart,
+                        activeEnd = h.reminderEnd,
+                        times = h.reminderTimes,
+                    ),
                 ),
             )
+        }
+        // Completions reference habits by the fresh ids above. Duplicate days are merged (the table key is habitId+epochDay).
+        val completions = file.habits.flatMapIndexed { i, h ->
+            h.completions
+                .filter { it.amount.isFinite() && it.amount > 0.0 }
+                .groupBy { it.epochDay }
+                .map { (day, rows) -> CompletionEntity(habitId = i + 1L, epochDay = day, amount = rows.sumOf { it.amount }) }
         }
         val relapses = file.habits.flatMapIndexed { i, h ->
             h.relapses.map {
@@ -180,7 +238,7 @@ object BackupCodec {
             JournalEntity(id = j + 1L, habitId = habitId, timestamp = it.timestamp, mood = it.mood.coerceIn(0, 5), text = it.text)
         }
         val photos = backed.mapIndexedNotNull { j, (_, it) -> it.photos.takeIf { p -> p.isNotEmpty() }?.let { p -> (j + 1L) to p.take(PhotoStore.MAX_PER_ENTRY) } }.toMap()
-        return Entities(habits, relapses, urges, journal, photos)
+        return Entities(habits, relapses, urges, journal, photos, completions)
     }
 }
 

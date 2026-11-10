@@ -4,6 +4,12 @@
 
     <!-- Local reminders only (check-in, milestones). Requested at runtime when the user turns them on. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Re-plan habit reminders after a reboot. Reminders use inexact alarms: no exact-alarm permission. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <queries>
+        <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
+    </queries>
 
     <!-- Privacy: no INTERNET permission. Device-to-device / cloud auto backup is disabled;
          users own their backups via explicit export. -->
@@ -144,6 +150,17 @@
         </receiver>
 
         <receiver android:name=".widget.WidgetPinnedReceiver" android:exported="false" />
+
+        <receiver android:name=".notify.HabitReminderReceiver" android:exported="false" />
+
+        <receiver android:name=".notify.HabitBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".widget.WidgetConfigActivity"

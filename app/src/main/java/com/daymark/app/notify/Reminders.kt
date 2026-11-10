@@ -101,10 +101,14 @@ object Reminders {
             val nowMs = System.currentTimeMillis()
             val habits = app.container.habits.all()
             val relapses = app.container.relapses.all()
-            val nextAt = habits.mapNotNull { h ->
+            val buildCheck = if (habits.any { it.isBuild }) {
+                // Build streaks grow when the user logs progress; look again shortly after each midnight.
+                LocalDate.now(ZoneId.systemDefault()).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() + 5 * 60_000L
+            } else null
+            val nextAt = listOfNotNull(buildCheck, habits.filter { !it.isBuild }.mapNotNull { h ->
                 val st = StreakEngine.compute(h.startAt, h.slipTimes(relapses.filter { it.habitId == h.id }.map { it.timestamp }), nowMs)
                 Milestones.next(st.currentDays)?.let { st.currentStart + it.days * StreakStats.DAY_MS }
-            }.minOrNull()
+            }.minOrNull()).minOrNull()
             if (nextAt != null) {
                 val delay = (nextAt - nowMs).coerceAtLeast(0) + 60_000L
                 wm.enqueueUniqueWork(
@@ -147,7 +151,31 @@ object Reminders {
         val sent = prefs.getStringSet(KEY_SENT, emptySet()).orEmpty().toMutableSet()
         val now = System.currentTimeMillis()
         val relapses = c.relapses.all()
+        val zone = ZoneId.systemDefault()
+        val completions = c.completions.all()
         for (h in c.habits.all()) {
+            if (h.isBuild) {
+                val b = com.daymark.app.domain.BuildEngine.compute(
+                    h.startAt, h.scheduleDays, h.goalTarget, completions.filter { it.habitId == h.id }, LocalDate.now(zone), zone,
+                )
+                val bm = Milestones.previous(b.currentStreak.toLong()) ?: continue
+                if (b.currentStreak - bm.days > 1) continue
+                // A new streak starts after each miss, so (habit, misses, milestone) identifies one celebration.
+                val bKey = "${h.id}:b${b.missedDays}:${bm.days}"
+                if (bKey in sent) continue
+                sent += bKey
+                val bTitle = if (s.discreet) "You reached a ${bm.days}-day streak 🌱" else "${h.displayName}: ${bm.days}-day streak 🌱"
+                val bn = NotificationCompat.Builder(context, CH_MILESTONES)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(bTitle)
+                    .setContentText("Showing up, again and again.")
+                    .setContentIntent(tap(context, "", ID_MILESTONE_BASE + h.id.toInt()))
+                    .setAutoCancel(true)
+                    .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                    .build()
+                NotificationManagerCompat.from(context).notify(ID_MILESTONE_BASE + h.id.toInt(), bn)
+                continue
+            }
             val st = StreakEngine.compute(h.startAt, h.slipTimes(relapses.filter { it.habitId == h.id }.map { it.timestamp }), now)
             val m = Milestones.previous(st.currentDays) ?: continue
             // Only celebrate if it was reached in the last two days (avoids a burst after enabling the setting).

@@ -75,6 +75,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.daymark.app.domain.Habit
+import com.daymark.app.domain.HabitKind
 import com.daymark.app.domain.Options
 import com.daymark.app.ui.components.DaymarkCard
 import com.daymark.app.ui.components.pressScale
@@ -114,10 +115,15 @@ fun HabitEditorScreen(
     var spendPeriod by rememberSaveable { mutableStateOf(existing?.spendPeriodDays ?: 7) }
     // Newline-joined so it survives process death.
     var reasons by rememberSaveable { mutableStateOf(existing?.reasons.orEmpty().joinToString("\n")) }
+    var kindId by rememberSaveable { mutableStateOf(existing?.kind?.id ?: HabitKind.BREAK.id) }
+    val kind = HabitKind.of(kindId)
+    val build = rememberBuildDraft(existing)
+    val isBuild = kind == HabitKind.BUILD
+    val canSave = if (isBuild) name.isNotBlank() && build.isValid else true
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(if (existing == null) "New tracker" else "Edit tracker") },
+            title = { Text(if (existing == null) (if (isBuild) "New habit" else "New tracker") else if (isBuild) "Edit habit" else "Edit tracker") },
             navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close") } },
             actions = {
                 if (existing != null && canDelete) {
@@ -131,22 +137,54 @@ fun HabitEditorScreen(
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             if (existing == null) {
+                KindChoice(kind) { k ->
+                    if (k.id != kindId) {
+                        kindId = k.id
+                        // Fresh slate for the other kind so one form's text doesn't leak into the other.
+                        name = ""; emoji = if (k == HabitKind.BUILD) Options.buildEmojis.first() else Options.emojis.first()
+                    }
+                }
+            } else {
+                KindLabel(kind)
+            }
+            if (existing == null && !isBuild) {
                 Text(
                     "Track each thing you're moving away from separately — every tracker keeps its own streaks, calendar and insights.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            HabitFields(
-                name = name, onName = { name = it },
-                emoji = emoji, onEmoji = { emoji = it },
-                startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
-                start = start, onStart = { start = it },
-                isNew = existing == null,
-            )
-            GoalFields(dailyLimit) { dailyLimit = it }
-            MoneyFields(spend, { spend = it }, spendPeriod, { spendPeriod = it })
-            ReasonsFields(reasons.split("\n").filter { it.isNotBlank() }) { reasons = it.joinToString("\n") }
+            if (isBuild) {
+                HabitFields(
+                    name = name, onName = { name = it },
+                    emoji = emoji, onEmoji = { emoji = it },
+                    startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
+                    start = start, onStart = { start = it },
+                    isNew = existing == null,
+                    nameTitle = "What will you build?",
+                    namePlaceholder = "e.g. Drink water",
+                    suggestions = Options.buildPresets.map { it.name },
+                    onSuggestion = { i ->
+                        val p = Options.buildPresets[i]
+                        name = p.name; emoji = p.emoji; build.applyPreset(p)
+                    },
+                    emojis = Options.buildEmojis,
+                    startTitle = "When do you begin?",
+                    nowLabel = "Today",
+                )
+                BuildFields(build)
+            } else {
+                HabitFields(
+                    name = name, onName = { name = it },
+                    emoji = emoji, onEmoji = { emoji = it },
+                    startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
+                    start = start, onStart = { start = it },
+                    isNew = existing == null,
+                )
+                GoalFields(dailyLimit) { dailyLimit = it }
+                MoneyFields(spend, { spend = it }, spendPeriod, { spendPeriod = it })
+                ReasonsFields(reasons.split("\n").filter { it.isNotBlank() }) { reasons = it.joinToString("\n") }
+            }
             Spacer(Modifier.height(4.dp))
         }
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -154,9 +192,11 @@ fun HabitEditorScreen(
                 onClick = {
                     haptics.confirm()
                     val startAt = if (existing == null && !startedEarlier) System.currentTimeMillis() else minOf(start, System.currentTimeMillis())
+                    val base = (existing ?: Habit(0, "", emoji, startAt)).copy(name = name.trim(), emoji = emoji, startAt = startAt)
                     onSave(
-                        (existing ?: Habit(0, "", emoji, startAt)).copy(
-                            name = name.trim(), emoji = emoji, startAt = startAt,
+                        if (isBuild) build.applyTo(base)
+                        else base.copy(
+                            kind = HabitKind.BREAK,
                             dailyLimit = dailyLimit,
                             spendAmount = spend.replace(",", "").toDoubleOrNull()?.coerceIn(0.0, 1e9) ?: 0.0,
                             spendPeriodDays = spendPeriod,
@@ -164,9 +204,10 @@ fun HabitEditorScreen(
                         ),
                     )
                 },
+                enabled = canSave,
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp).height(56.dp),
                 shape = RoundedCornerShape(18.dp),
-            ) { Text(if (existing == null) "Start tracking" else "Save changes", style = MaterialTheme.typography.titleMedium) }
+            ) { Text(if (existing == null) (if (isBuild) "Start building" else "Start tracking") else "Save changes", style = MaterialTheme.typography.titleMedium) }
         }
     }
 
@@ -194,6 +235,14 @@ fun HabitFields(
     startedEarlier: Boolean, onStartedEarlier: (Boolean) -> Unit,
     start: Long, onStart: (Long) -> Unit,
     isNew: Boolean,
+    nameTitle: String = "What are you moving away from?",
+    namePlaceholder: String = "Optional — e.g. Alcohol",
+    suggestions: List<String> = Options.habitSuggestions,
+    /** Called with the tapped suggestion's index; null = fill the name with it. */
+    onSuggestion: ((Int) -> Unit)? = null,
+    emojis: List<String> = Options.emojis,
+    startTitle: String = "When did you start?",
+    nowLabel: String = "Starting now",
 ) {
     val haptics = rememberHaptics()
     val zone = ZoneId.systemDefault()
@@ -201,20 +250,20 @@ fun HabitFields(
     var showTime by remember { mutableStateOf(false) }
 
     Column {
-        Text("What are you moving away from?", style = MaterialTheme.typography.titleMedium)
+        Text(nameTitle, style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
             value = name, onValueChange = { onName(it.take(40)) },
             modifier = Modifier.fillMaxWidth(), singleLine = true,
-            placeholder = { Text("Optional — e.g. Alcohol") },
+            placeholder = { Text(namePlaceholder) },
             leadingIcon = { Text(emoji, fontSize = 22.sp) },
             shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )
         Spacer(Modifier.height(10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Options.habitSuggestions.forEach { s ->
-                SuggestionChip(onClick = { haptics.tick(); onName(s) }, label = { Text(s) }, shape = RoundedCornerShape(12.dp))
+            suggestions.forEachIndexed { i, s ->
+                SuggestionChip(onClick = { haptics.tick(); if (onSuggestion != null) onSuggestion(i) else onName(s) }, label = { Text(s) }, shape = RoundedCornerShape(12.dp))
             }
         }
     }
@@ -223,16 +272,16 @@ fun HabitFields(
         Text("Choose a symbol", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Options.emojis.forEach { e -> EmojiChoice(e, e == emoji) { haptics.tick(); onEmoji(e) } }
+            emojis.forEach { e -> EmojiChoice(e, e == emoji) { haptics.tick(); onEmoji(e) } }
         }
     }
 
     Column {
-        Text(if (isNew) "When did you start?" else "Tracking since", style = MaterialTheme.typography.titleMedium)
+        Text(if (isNew) startTitle else "Tracking since", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(10.dp))
         if (isNew) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(!startedEarlier, { onStartedEarlier(false) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Starting now") }
+                SegmentedButton(!startedEarlier, { onStartedEarlier(false) }, SegmentedButtonDefaults.itemShape(0, 2)) { Text(nowLabel) }
                 SegmentedButton(startedEarlier, { onStartedEarlier(true) }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("Earlier") }
             }
         }

@@ -55,6 +55,11 @@ import java.util.Locale
 
 @Composable
 fun InsightsScreen(vm: MainViewModel, contentPadding: PaddingValues) {
+    val habit by vm.selectedHabit.collectAsStateWithLifecycle()
+    habit?.takeIf { it.isBuild }?.let { h ->
+        BuildInsightsScreen(vm, h, contentPadding)
+        return
+    }
     val insights by vm.insights.collectAsStateWithLifecycle()
     val stats by vm.stats.collectAsStateWithLifecycle()
     val data = insights
@@ -314,7 +319,7 @@ private fun BarRows(items: List<Pair<String, Int>>, color: Color) {
 }
 
 @Composable
-private fun ChartLabels(labels: List<String>, emphasis: Boolean = false) {
+internal fun ChartLabels(labels: List<String>, emphasis: Boolean = false) {
     Row(Modifier.fillMaxWidth()) {
         labels.forEach {
             Text(
@@ -331,7 +336,7 @@ private fun ChartLabels(labels: List<String>, emphasis: Boolean = false) {
 
 /** Vertical bar chart with rounded tops, spring-in animation and an optional dashed reference line. */
 @Composable
-private fun BarChart(
+internal fun BarChart(
     values: List<Float>,
     colors: List<Color>,
     modifier: Modifier = Modifier,

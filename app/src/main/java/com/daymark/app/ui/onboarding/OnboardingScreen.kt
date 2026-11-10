@@ -39,20 +39,30 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.daymark.app.domain.Habit
+import com.daymark.app.domain.HabitKind
 import com.daymark.app.domain.Options
 import com.daymark.app.ui.components.rememberHaptics
+import com.daymark.app.ui.habits.BuildFields
 import com.daymark.app.ui.habits.HabitFields
+import com.daymark.app.ui.habits.KindChoice
+import com.daymark.app.ui.habits.rememberBuildDraft
 import com.daymark.app.ui.theme.DaymarkTheme
 import com.daymark.app.ui.theme.LocalReducedMotion
 import com.daymark.app.ui.theme.Motion
 
 @Composable
-fun OnboardingScreen(onBegin: (name: String, emoji: String, start: Long) -> Unit) {
+fun OnboardingScreen(onBegin: (Habit) -> Unit) {
     val haptics = rememberHaptics()
     var name by rememberSaveable { mutableStateOf("") }
     var emoji by rememberSaveable { mutableStateOf(Options.emojis.first()) }
     var startedEarlier by rememberSaveable { mutableStateOf(false) }
     var start by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
+    var kindId by rememberSaveable { mutableStateOf(HabitKind.BREAK.id) }
+    val kind = HabitKind.of(kindId)
+    val isBuild = kind == HabitKind.BUILD
+    val build = rememberBuildDraft(null)
+    val canBegin = !isBuild || (name.isNotBlank() && build.isValid)
 
     // Gentle entrance: content rises into place once.
     val reduced = LocalReducedMotion.current
@@ -80,21 +90,52 @@ fun OnboardingScreen(onBegin: (name: String, emoji: String, start: Long) -> Unit
             Text("Welcome to Daymark", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Every day you mark is a day you made. Track your progress, understand your patterns, and keep every achievement — even after a slip.",
+                "Build good habits or let go of old ones. Every day you mark is a day you made, and every achievement is kept — even after a slip or a missed day.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(32.dp))
             Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                HabitFields(
-                    name = name, onName = { name = it },
-                    emoji = emoji, onEmoji = { emoji = it },
-                    startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
-                    start = start, onStart = { start = it },
-                    isNew = true,
-                )
+                Column {
+                    Text("What would you like to do?", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(10.dp))
+                    KindChoice(kind) { k ->
+                        if (k.id != kindId) {
+                            kindId = k.id
+                            name = ""; emoji = if (k == HabitKind.BUILD) Options.buildEmojis.first() else Options.emojis.first()
+                        }
+                    }
+                }
+                if (isBuild) {
+                    HabitFields(
+                        name = name, onName = { name = it },
+                        emoji = emoji, onEmoji = { emoji = it },
+                        startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
+                        start = start, onStart = { start = it },
+                        isNew = true,
+                        nameTitle = "What will you build?",
+                        namePlaceholder = "e.g. Drink water",
+                        suggestions = Options.buildPresets.map { it.name },
+                        onSuggestion = { i ->
+                            val p = Options.buildPresets[i]
+                            name = p.name; emoji = p.emoji; build.applyPreset(p)
+                        },
+                        emojis = Options.buildEmojis,
+                        startTitle = "When do you begin?",
+                        nowLabel = "Today",
+                    )
+                    BuildFields(build)
+                } else {
+                    HabitFields(
+                        name = name, onName = { name = it },
+                        emoji = emoji, onEmoji = { emoji = it },
+                        startedEarlier = startedEarlier, onStartedEarlier = { startedEarlier = it; if (!it) start = System.currentTimeMillis() },
+                        start = start, onStart = { start = it },
+                        isNew = true,
+                    )
+                }
                 Text(
-                    "You can add more trackers later — each keeps its own streaks.",
+                    "You can add more habits later — each keeps its own streaks.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -114,8 +155,11 @@ fun OnboardingScreen(onBegin: (name: String, emoji: String, start: Long) -> Unit
             Button(
                 onClick = {
                     haptics.confirm()
-                    onBegin(name, emoji, if (startedEarlier) minOf(start, System.currentTimeMillis()) else System.currentTimeMillis())
+                    val startAt = if (startedEarlier) minOf(start, System.currentTimeMillis()) else System.currentTimeMillis()
+                    val habit = Habit(0, name.trim(), emoji, startAt)
+                    onBegin(if (isBuild) build.applyTo(habit) else habit)
                 },
+                enabled = canBegin,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(18.dp),
             ) { Text("Begin my journey", style = MaterialTheme.typography.titleMedium) }

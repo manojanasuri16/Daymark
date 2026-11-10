@@ -29,7 +29,19 @@ data class Habit(
     val dailyLimit: Int = 0,
     /** The user's own reasons, shown back to them on hard days. */
     val reasons: List<String> = emptyList(),
+    // --- Build-a-habit fields (ignored for BREAK habits) ---
+    val kind: HabitKind = HabitKind.BREAK,
+    /** Daily goal in [goalUnit]. 0 = a simple "done" check-off. */
+    val goalTarget: Double = 0.0,
+    val goalUnit: String = "",
+    /** Quick-add increment shown on the + button (e.g. 250 for a glass of water). */
+    val goalStep: Double = 1.0,
+    /** See [Schedule]. */
+    val scheduleDays: Int = Schedule.EVERY_DAY,
+    val reminder: ReminderConfig = ReminderConfig(),
 ) {
+    val isBuild: Boolean get() = kind == HabitKind.BUILD
+    val hasGoal: Boolean get() = isBuild && goalTarget > 0
     val displayName: String get() = name.ifBlank { "My journey" }
     val isReduce: Boolean get() = dailyLimit > 0
     val tracksMoney: Boolean get() = spendAmount > 0.0 && spendPeriodDays > 0

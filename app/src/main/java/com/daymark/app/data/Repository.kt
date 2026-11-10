@@ -1,6 +1,7 @@
 package com.daymark.app.data
 
 import androidx.room.withTransaction
+import com.daymark.app.domain.Completion
 import com.daymark.app.domain.Habit
 import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
@@ -46,6 +47,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
     suspend fun delete(id: Long) = db.withTransaction {
         db.relapseDao().deleteForHabit(id)
         db.urgeDao().deleteForHabit(id)
+        db.completionDao().deleteForHabit(id)
         db.journalPhotoDao().deleteForHabit(id) // image files are swept by PhotoStore
         db.journalDao().deleteForHabit(id)
         dao.delete(id)
@@ -63,6 +65,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         urges: List<UrgeEntity> = emptyList(),
         journal: List<JournalEntity> = emptyList(),
         photos: List<JournalPhotoEntity> = emptyList(),
+        completions: List<CompletionEntity> = emptyList(),
     ) = db.withTransaction {
         clearAll()
         dao.insertAll(habits)
@@ -70,6 +73,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         db.urgeDao().insertAll(urges)
         db.journalDao().insertAll(journal)
         db.journalPhotoDao().insertAll(photos)
+        db.completionDao().insertAll(completions)
     }
 
     suspend fun clear() = db.withTransaction { clearAll() }
@@ -77,10 +81,36 @@ class HabitRepository(private val db: DaymarkDatabase) {
     private suspend fun clearAll() {
         db.relapseDao().clear()
         db.urgeDao().clear()
+        db.completionDao().clear()
         db.journalPhotoDao().clear()
         db.journalDao().clear()
         dao.clear()
     }
+}
+
+/** Daily progress for build habits. */
+class CompletionRepository(private val db: DaymarkDatabase) {
+    private val dao = db.completionDao()
+
+    val completions: Flow<List<Completion>> = dao.observeAll().map { list -> list.map { it.toCompletion() } }
+
+    suspend fun all(): List<Completion> = dao.getAll().map { it.toCompletion() }
+    suspend fun allEntities(): List<CompletionEntity> = dao.getAll()
+
+    /** Sets the day's total. An amount <= 0 removes the row. */
+    suspend fun set(habitId: Long, epochDay: Long, amount: Double) {
+        if (amount <= 0.0) dao.delete(habitId, epochDay)
+        else dao.upsert(CompletionEntity(habitId, epochDay, amount, System.currentTimeMillis()))
+    }
+
+    /** Adds [delta] (may be negative) to the day's total, never below zero. Returns the new total. */
+    suspend fun add(habitId: Long, epochDay: Long, delta: Double): Double = db.withTransaction {
+        val next = ((dao.get(habitId, epochDay)?.amount ?: 0.0) + delta).coerceAtLeast(0.0)
+        set(habitId, epochDay, next)
+        next
+    }
+
+    suspend fun amount(habitId: Long, epochDay: Long): Double = dao.get(habitId, epochDay)?.amount ?: 0.0
 }
 
 class UrgeRepository(db: DaymarkDatabase) {

@@ -108,13 +108,15 @@ fun DashboardScreen(
     val selected by vm.selectedHabit.collectAsStateWithLifecycle()
     val overview by vm.overview.collectAsStateWithLifecycle()
     val stats by vm.stats.collectAsStateWithLifecycle()
+    val buildStats by vm.buildStats.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
     val urges by vm.urges.collectAsStateWithLifecycle()
     val entries by vm.relapses.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     val habit = selected?.name.orEmpty()
-    val reduce = selected?.isReduce == true
+    val isBuild = selected?.isBuild == true
+    val reduce = !isBuild && selected?.isReduce == true
     val haptics = rememberHaptics()
     val chipsState = rememberLazyListState()
     // Keep the selected tracker's chip in view when switching or when trackers are added/removed.
@@ -144,6 +146,7 @@ fun DashboardScreen(
                     AnimatedText(
                         when {
                             habit.isBlank() -> "Your journey"
+                            isBuild -> habit
                             reduce -> "Cutting down: $habit"
                             else -> "Free from $habit"
                         },
@@ -164,6 +167,7 @@ fun DashboardScreen(
                         emoji = summary.habit.emoji,
                         label = summary.habit.displayName,
                         days = summary.stats.currentDays,
+                        build = summary.build,
                         selected = summary.habit.id == selected?.id,
                         onClick = { haptics.tick(); vm.selectHabit(summary.habit.id) },
                     )
@@ -171,6 +175,23 @@ fun DashboardScreen(
                 item("add") { AddTrackerChip(compact = overview.size > 1, onClick = onAddHabit) }
             }
         }
+        val buildNow = buildStats
+        val sel = selected
+        if (isBuild && sel != null && buildNow != null) {
+            buildDashboardItems(
+                vm = vm, habit = sel, build = buildNow, stats = stats, overview = overview, today = today,
+                onJournal = onJournal, onOpenCalendar = onOpenCalendar, onOpenHistory = onLogSlip,
+                onShare = { m ->
+                    settings?.let { st ->
+                        val label = if (st.discreet) null else sel.displayName
+                        com.daymark.app.ui.share.ShareCard.share(
+                            context,
+                            com.daymark.app.ui.share.ShareCard.render(stats.currentDays, m.title, m.subtitle, label, com.daymark.app.ui.theme.Accent.of(st.accent)),
+                        )
+                    }
+                },
+            )
+        } else if (!isBuild) {
         item("hero") { HeroCard(stats) }
         if (reduce) {
             item("today") {
@@ -291,6 +312,7 @@ fun DashboardScreen(
         item("ach") { AchievementsRow(stats) }
         item("journey") { JourneyCard(stats, onOpenCalendar) }
         item("slip") { SlipCard(reduce, onLogSlip) }
+        }
     }
 }
 
@@ -360,7 +382,7 @@ private fun HeroCard(stats: StreakStats) {
 }
 
 @Composable
-private fun MilestoneBanner(stats: StreakStats, onShare: (Milestone) -> Unit) {
+internal fun MilestoneBanner(stats: StreakStats, onShare: (Milestone) -> Unit) {
     val hit = Milestones.all.lastOrNull { it.days.toLong() == stats.currentDays }
     AnimatedVisibility(
         visible = hit != null,
@@ -388,7 +410,7 @@ private fun MilestoneBanner(stats: StreakStats, onShare: (Milestone) -> Unit) {
 }
 
 @Composable
-private fun AchievementsRow(stats: StreakStats) {
+internal fun AchievementsRow(stats: StreakStats) {
     var selected by rememberSaveable { mutableStateOf<Int?>(null) }
     val next = Milestones.next(stats.currentDays)
     Column {
@@ -477,7 +499,7 @@ private fun Badge(
 }
 
 @Composable
-private fun TrackerChip(emoji: String, label: String, days: Long, selected: Boolean, onClick: () -> Unit) {
+private fun TrackerChip(emoji: String, label: String, days: Long, build: com.daymark.app.domain.BuildStats?, selected: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val bg by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
@@ -494,8 +516,14 @@ private fun TrackerChip(emoji: String, label: String, days: Long, selected: Bool
             Spacer(Modifier.width(8.dp))
             Text(label, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
             Spacer(Modifier.width(8.dp))
+            val badge = when {
+                build == null -> "${days}d"
+                build.todayDone -> "✓"
+                build.todayTarget > 1.0 && build.todayAmount > 0 -> "${(build.todayProgress * 100).toInt()}%"
+                else -> "${days}d"
+            }
             Text(
-                "${days}d", style = MaterialTheme.typography.labelLarge,
+                badge, style = MaterialTheme.typography.labelLarge,
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -578,7 +606,7 @@ private fun SlipCard(reduce: Boolean, onLogSlip: () -> Unit) {
 }
 
 @Composable
-private fun ActionCard(
+internal fun ActionCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String,

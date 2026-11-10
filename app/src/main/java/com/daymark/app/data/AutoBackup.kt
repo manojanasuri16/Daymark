@@ -24,6 +24,7 @@ object BackupWriter {
         val plain = BackupCodec.encode(
             settings, habits, c.relapses.allEntities(), c.urges.allEntities(), c.journal.allEntities(),
             journalPhotos = photos,
+            completions = c.completions.allEntities(),
         )
         return if (password.isBlank()) plain else BackupCrypto.encrypt(plain, password)
     }

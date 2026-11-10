@@ -16,7 +16,12 @@ import androidx.room.RoomDatabase
 import androidx.room.Update
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.daymark.app.domain.Completion
 import com.daymark.app.domain.Habit
+import com.daymark.app.domain.HabitKind
+import com.daymark.app.domain.ReminderConfig
+import com.daymark.app.domain.ReminderMode
+import com.daymark.app.domain.Schedule
 import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.UrgeRecord
@@ -36,11 +41,28 @@ data class HabitEntity(
     @ColumnInfo(defaultValue = "0") val dailyLimit: Int = 0,
     /** Newline-separated. */
     @ColumnInfo(defaultValue = "''") val reasons: String = "",
+    /** 0 = break a habit, 1 = build a habit. */
+    @ColumnInfo(defaultValue = "0") val kind: Int = 0,
+    @ColumnInfo(defaultValue = "0") val goalTarget: Double = 0.0,
+    @ColumnInfo(defaultValue = "''") val goalUnit: String = "",
+    @ColumnInfo(defaultValue = "1") val goalStep: Double = 1.0,
+    @ColumnInfo(defaultValue = "127") val scheduleDays: Int = 127,
+    @ColumnInfo(defaultValue = "0") val reminderMode: Int = 0,
+    @ColumnInfo(defaultValue = "60") val reminderInterval: Int = 60,
+    @ColumnInfo(defaultValue = "480") val reminderStart: Int = 480,
+    @ColumnInfo(defaultValue = "1260") val reminderEnd: Int = 1260,
+    /** Comma-separated minutes after midnight. */
+    @ColumnInfo(defaultValue = "''") val reminderTimes: String = "",
 ) {
     fun toHabit() = Habit(
         id, name, emoji, startAt, sortOrder,
         spendAmount = spendAmount, spendPeriodDays = spendPeriodDays, dailyLimit = dailyLimit,
         reasons = reasons.split("\n").map { it.trim() }.filter { it.isNotEmpty() },
+        kind = HabitKind.of(kind), goalTarget = goalTarget, goalUnit = goalUnit, goalStep = goalStep, scheduleDays = scheduleDays,
+        reminder = ReminderConfig(
+            ReminderMode.of(reminderMode), reminderInterval, reminderStart, reminderEnd,
+            reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() },
+        ),
     )
 
     companion object {
@@ -48,6 +70,11 @@ data class HabitEntity(
             id = h.id, name = h.name, emoji = h.emoji, startAt = h.startAt, sortOrder = h.sortOrder,
             spendAmount = h.spendAmount, spendPeriodDays = h.spendPeriodDays.coerceAtLeast(1), dailyLimit = h.dailyLimit.coerceAtLeast(0),
             reasons = h.reasons.map { it.replace("\n", " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n"),
+            kind = h.kind.id, goalTarget = h.goalTarget.coerceAtLeast(0.0), goalUnit = h.goalUnit.trim(), goalStep = h.goalStep.coerceAtLeast(0.0).takeIf { it > 0 } ?: 1.0,
+            scheduleDays = Schedule.normalize(h.scheduleDays),
+            reminderMode = h.reminder.mode.id, reminderInterval = h.reminder.intervalMinutes.coerceIn(15, 720),
+            reminderStart = h.reminder.activeStart.coerceIn(0, 1439), reminderEnd = h.reminder.activeEnd.coerceIn(0, 1439),
+            reminderTimes = h.reminder.times.map { it.coerceIn(0, 1439) }.distinct().sorted().joinToString(","),
         )
     }
 }
@@ -124,6 +151,44 @@ data class RelapseEntity(
             notes = r.notes,
         )
     }
+}
+
+/** Progress on a build habit: one row per habit per local day. [amount] is in the habit's unit (1 = done for a simple check-off). */
+@Entity(tableName = "completions", primaryKeys = ["habitId", "epochDay"])
+data class CompletionEntity(
+    val habitId: Long,
+    val epochDay: Long,
+    val amount: Double,
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
+) {
+    fun toCompletion() = Completion(habitId, epochDay, amount)
+}
+
+@Dao
+interface CompletionDao {
+    @Query("SELECT * FROM completions ORDER BY epochDay ASC")
+    fun observeAll(): Flow<List<CompletionEntity>>
+
+    @Query("SELECT * FROM completions ORDER BY epochDay ASC")
+    suspend fun getAll(): List<CompletionEntity>
+
+    @Query("SELECT * FROM completions WHERE habitId = :habitId AND epochDay = :epochDay")
+    suspend fun get(habitId: Long, epochDay: Long): CompletionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: CompletionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<CompletionEntity>)
+
+    @Query("DELETE FROM completions WHERE habitId = :habitId AND epochDay = :epochDay")
+    suspend fun delete(habitId: Long, epochDay: Long)
+
+    @Query("DELETE FROM completions WHERE habitId = :habitId")
+    suspend fun deleteForHabit(habitId: Long)
+
+    @Query("DELETE FROM completions")
+    suspend fun clear()
 }
 
 @Dao
@@ -308,9 +373,29 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/** v4 → v5: "build a habit" — kind, goal, weekly schedule and reminders on trackers; daily completions table. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `kind` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `goalTarget` REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `goalUnit` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `goalStep` REAL NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `scheduleDays` INTEGER NOT NULL DEFAULT 127")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderMode` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderInterval` INTEGER NOT NULL DEFAULT 60")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderStart` INTEGER NOT NULL DEFAULT 480")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderEnd` INTEGER NOT NULL DEFAULT 1260")
+        db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderTimes` TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `completions` (`habitId` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                "`amount` REAL NOT NULL, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`habitId`, `epochDay`))",
+        )
+    }
+}
+
 @Database(
-    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class],
-    version = 4,
+    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class, CompletionEntity::class],
+    version = 5,
     exportSchema = true,
 )
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -319,9 +404,10 @@ abstract class DaymarkDatabase : RoomDatabase() {
     abstract fun urgeDao(): UrgeDao
     abstract fun journalDao(): JournalDao
     abstract fun journalPhotoDao(): JournalPhotoDao
+    abstract fun completionDao(): CompletionDao
 
     companion object {
         fun build(context: Context): DaymarkDatabase =
-            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     }
 }

@@ -95,6 +95,7 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
         val h0 = withContext(Dispatchers.IO) { app.container.habits.all() }
         val r0 = withContext(Dispatchers.IO) { app.container.relapses.all() }
         val u0 = withContext(Dispatchers.IO) { app.container.urges.allEntities().map { it.toRecord() } }
+        val c0 = withContext(Dispatchers.IO) { app.container.completions.all() }
         // Glance keeps one running session per widget id, and every later update() for that id, from any
         // GlanceAppWidget class, is routed into it. If a session was ever started by the wrong class (a refresh
         // that resolved the wrong kind), the widget kept drawing that class's layout, e.g. a ring widget showing
@@ -115,10 +116,11 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
             val habits by app.container.habits.habits.collectAsState(h0)
             val relapses by app.container.relapses.relapses.collectAsState(r0)
             val urges by app.container.urges.urges.collectAsState(u0)
+            val completions by app.container.completions.completions.collectAsState(c0)
             val prefs = currentState<Preferences>()
             val style = WidgetStyle.of(prefs[StyleKey])
             val habit = if (settings.onboarded) WidgetSnapshot.resolveHabit(habits, prefs[HabitKey], settings) else null
-            val snap = WidgetSnapshot.from(habit, relapses, urges = urges, discreet = settings.discreet)
+            val snap = WidgetSnapshot.from(habit, relapses, urges = urges, discreet = settings.discreet, completions = completions)
             Box(
                 GlanceModifier
                     .fillMaxSize()
