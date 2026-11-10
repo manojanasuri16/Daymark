@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2 — 2026-11-10 (versionCode 6)
+
+• Friendlier starting suggestions: Alcohol, Smoking, Doomscrolling, Sugar, Gaming and more
+• Removed sensitive suggestions and triggers from the setup screens
+
+
 ## 1.3.1 — 2026-11-08 (versionCode 5)
 
 • Widgets always show their own layout: a progress ring no longer turns into the slim streak counter after unlocking or after a while.

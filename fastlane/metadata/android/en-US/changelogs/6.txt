@@ -1,0 +1,3 @@
+New in 1.3.2:
+• Friendlier starting suggestions: Alcohol, Smoking, Doomscrolling, Sugar, Gaming and more
+• Removed sensitive suggestions and triggers from the setup screens
