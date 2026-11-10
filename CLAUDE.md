@@ -1,6 +1,6 @@
 # Daymark: guide for Claude (and humans)
 
-Daymark is a private, offline-first Android app for habit recovery and streak tracking. It has one module (`:app`), package `com.daymark.app`, and is written in Kotlin with Jetpack Compose (Material 3), Room, DataStore and Glance widgets. A human-friendly runbook is in `docs/MAINTAINING.md`.
+Daymark is a private, offline-first Android app for building good habits and breaking unwanted ones (two habit kinds: BREAK = streak since last slip, BUILD = daily completions). It has one module (`:app`), package `com.daymark.app`, and is written in Kotlin with Jetpack Compose (Material 3), Room, DataStore and Glance widgets. A human-friendly runbook is in `docs/MAINTAINING.md`.
 
 ## Non-negotiables
 
@@ -41,16 +41,19 @@ domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngin
   Milestones.kt     12 milestones; earned() uses the LONGEST streak (so they're never lost)
   Insights.kt       RelapseRecord, Habit (money, dailyLimit, reasons), UrgeRecord, JournalEntry, InsightsEngine (+ urges)
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
-  Options.kt        triggers, situations, moods, tracker emojis and suggestions
+  Build.kt          HabitKind, Schedule (weekday bitmask), ReminderConfig, BuildEngine (streak over scheduled days; rest days and a pending today never break it), BuildStats, Completion
+  BuildInsights.kt  weekday stats / streak runs for build habits
+  Options.kt        triggers, build presets, situations, moods, tracker emojis and suggestions
 data/
-  Database.kt       Room v4: habits, relapses, urges, journal, journal_photos; DAOs; MIGRATION_1_2 … MIGRATION_3_4
+  Database.kt       Room v5: habits (kind, goal, schedule, reminder columns), relapses, urges, journal, journal_photos, completions (one row per habit per day); DAOs; MIGRATION_1_2 … MIGRATION_4_5
   Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
   SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
-  Backup.kt         JSON export/import, format v4 (habits with nested relapses/urges/journal, journal photos as base64); reads v1–v3. BackupCrypto = optional AES-GCM password
+  Backup.kt         JSON export/import, format v5 (habits with nested completions, with nested relapses/urges/journal, journal photos as base64); reads v1–v3. BackupCrypto = optional AES-GCM password
   PhotoStore.kt     journal photos: files/journal_photos/<uuid>.jpg (≤1600 px, re-encoded), thumbnails, base64, orphan sweep
   AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
 notify/
   Reminders.kt      Routes (deep-link extras), local check-in + milestone notifications (WorkManager), discreet text
+  HabitReminders.kt + ReminderPlanner.kt  build-habit reminders: one inexact setAndAllowWhileIdle alarm per habit (no exact-alarm permission), next slot only, pure planner; notification actions +step/Done, Snooze 15, Skip; boot/time-change receiver
   UrgeTileService.kt  Quick Settings tile → urge screen
 DaymarkApp.kt       AppContainer (manual DI), runs the legacy migration, refreshes widgets on data change
 ui/
@@ -83,6 +86,8 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - **Journal photos** are files; the DB only stores their names. Deleting an entry deletes its files, and `PhotoStore.sweep()` (at app start and after a restore) removes any file no row references, e.g. after a tracker is deleted. Files younger than an hour are never swept (an entry may still be open).
 - **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
+
+- **Build habits:** `Habit.isBuild`. Progress is a `completions` row per habit per day (amount in the goal unit; goal 0 = check-off). Screens branch on kind (`BuildDashboard`, `BuildCalendar`, `BuildInsightsScreen`, `BuildProgressScreen`); `MainViewModel.stats` maps build streaks into `StreakStats` so streak-shaped UI and widgets still work. Kind can't be changed after creation. Never run break-habit maths (StreakEngine/relapses) on a build habit.
 
 ## Recipes
 

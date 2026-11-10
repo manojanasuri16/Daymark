@@ -1,9 +1,21 @@
-Daymark is a calm, private streak tracker for anyone working on changing a habit. Every day you mark is a day you made, and a slip never erases what you've built.
+Daymark is a calm, private habit app for building good habits and breaking unwanted ones. Every day you mark is a day you made, and a slip or a missed day never erases what you've built.
 
 Your data stays on your phone. There is no account, no ads, no analytics and no internet permission.
 
+BUILD A HABIT
+• Drink water, read, work out, meditate, walk, stretch, journal or sleep earlier, with ready-made presets
+• Daily goals such as 3 L of water or 10 pages, or a simple "mark done"
+• Every day or a custom weekly schedule; rest days never break a streak
+• Reminders every 30 to 180 minutes inside the hours you choose, or at set times, and never outside them
+• Log, snooze or skip right from the notification
+• Current and longest streak, completion rate, missed days and a weekly history
+• Fix a forgotten day from the calendar
+
+BREAK A HABIT
+• Quit completely or cut down with a daily limit, with a live streak and slip log
+
 TRACK MORE THAN ONE THING
-• Separate trackers for each habit you're changing, such as alcohol, smoking or doomscrolling
+• Separate trackers for each habit, building or breaking, such as water, reading, alcohol or doomscrolling
 • Every tracker keeps its own streaks, calendar, insights and achievements
 • Switch between trackers with one tap
 
@@ -13,7 +25,7 @@ RIDE OUT URGES
 • A journal for any day, with a gentle prompt
 • Money kept: see what you no longer spend
 • Cut-down mode: set a daily limit instead of quitting outright
-• Optional daily check-in and milestone reminders
+• Optional daily check-in and milestone reminders (for build habits too)
 • Quick Settings tile and app shortcuts
 
 TODAY

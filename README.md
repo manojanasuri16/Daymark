@@ -1,10 +1,11 @@
 # Daymark
 
-A calm, private, offline-first habit recovery and streak tracker for Android.
+A calm, private, offline-first app for building good habits and breaking unwanted ones, for Android.
 Every day you mark is a day you made. A slip never erases what you've built.
 
 ## Features
 
+- **Build a habit:** water, reading, gym, meditation and more. Daily amount goals or check-offs, weekly schedules, reminders every 30–180 minutes within active hours or at set times (log, snooze or skip from the notification), streaks, completion rate and weekly history.
 - **Multiple trackers:** follow several habits at once, such as alcohol, smoking or doomscrolling. Each has its own start date, streaks, calendar, insights and achievements, and one tap switches between them.
 - **Today dashboard:** a live streak counter (days, plus ticking hours, minutes and seconds), a progress ring toward the next milestone, your longest streak, total clean days and a daily encouragement.
 - **Achievements:** 12 milestones, from 24 hours to 5 years. They're earned against your *longest* streak, so they're never lost after a relapse.
