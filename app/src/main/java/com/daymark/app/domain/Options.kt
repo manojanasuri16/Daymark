@@ -6,8 +6,8 @@ object Options {
     val triggers = listOf(
         "Stress", "Boredom", "Loneliness", "Anxiety", "Anger", "Sadness",
         "Tiredness", "Social pressure", "Celebration", "Cravings", "Screens",
-        "Late night", "Conflict", "Habit cue", "Arousal", "Payday / cash", "Rejection", "After drinking",
-        "Browsing apps", "Hotel / alone away",
+        "Late night", "Conflict", "Habit cue", "Payday / cash", "Rejection", "After drinking",
+        "Browsing apps",
     )
 
     val situations = listOf(
@@ -26,8 +26,8 @@ object Options {
     val emojis = listOf("🌱", "☀️", "🌊", "🕊️", "💪", "🧘", "🌙", "🔥", "⭐", "🏔️", "🦋", "💧", "🍃", "❤️", "🚭", "📵")
 
     val habitSuggestions = listOf(
-        "Alcohol", "Smoking", "Vaping", "Porn", "Masturbation", "Paid sex", "Social media", "Gambling",
-        "Junk food", "Doomscrolling", "Caffeine",
+        "Alcohol", "Smoking", "Vaping", "Doomscrolling", "Social media", "Gambling",
+        "Junk food", "Caffeine", "Sugar", "Online shopping", "Gaming", "Nail biting",
     )
 
     fun mood(value: Int): Mood? = moods.firstOrNull { it.value == value }
