@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-11-10 (versionCode 7)
+
+• Build habits, not just break them: drink water, read, work out, meditate, walk and more
+• Daily goals (e.g. 3 L of water) or simple check-offs, on every day or a custom weekly schedule
+• Reminders every 30–180 minutes within your active hours, or at set times; log, snooze or skip right from the notification
+• Streaks, completion rate, missed days and weekly history for build habits
+• All existing habits, slips and history are untouched
+
+
 ## 1.3.2 — 2026-11-10 (versionCode 6)
 
 • Friendlier starting suggestions: Alcohol, Smoking, Doomscrolling, Sugar, Gaming and more
