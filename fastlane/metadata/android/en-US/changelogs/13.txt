@@ -1,0 +1,3 @@
+New in 1.6.3:
+• Fixed the widget previews showing "Can't load widget" or "Couldn't add widget" in some launchers (Streak and Event)
+• Adding an event to your home screen now shows a proper preview

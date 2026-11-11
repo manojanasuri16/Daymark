@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.3 — 2026-11-11 (versionCode 13)
+
+• Fixed the widget previews showing "Can't load widget" or "Couldn't add widget" in some launchers (Streak and Event)
+• Adding an event to your home screen now shows a proper preview
+
+
 ## 1.6.2 — 2026-11-11 (versionCode 12)
 
 • The Calendar now marks every day you wrote a journal entry with a small badge, so you can find them at a glance (break and build habits)

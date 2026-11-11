@@ -14,8 +14,8 @@ android {
         applicationId = "com.daymark.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.6.2"
+        versionCode = 13
+        versionName = "1.6.3"
     }
 
     signingConfigs {
