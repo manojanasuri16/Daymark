@@ -113,8 +113,18 @@ data class WidgetSnapshot(
             )
         }
 
+        /**
+         * The tracker a widget shows. A widget that has a stored [preferredId] never follows the app's selected tracker.
+         * Only a widget with NO stored id yet (not claimed) shows the selected one, and [claimHabitId] pins it right away.
+         * A stored id whose tracker was deleted falls back to the first tracker (stable), not the selection.
+         */
         fun resolveHabit(habits: List<Habit>, preferredId: Long?, settings: Settings): Habit? =
-            habits.firstOrNull { it.id == preferredId } ?: habits.firstOrNull { it.id == settings.selectedHabitId } ?: habits.firstOrNull()
+            if (preferredId == null) habits.firstOrNull { it.id == settings.selectedHabitId } ?: habits.firstOrNull()
+            else habits.firstOrNull { it.id == preferredId } ?: habits.firstOrNull()
+
+        /** The id to persist for a widget lacking one: the kind default if it still exists, else what it shows now. */
+        fun claimHabitId(habits: List<Habit>, defaultId: Long, settings: Settings): Long? =
+            habits.firstOrNull { it.id == defaultId && defaultId != 0L }?.id ?: resolveHabit(habits, null, settings)?.id
     }
 }
 
@@ -143,7 +153,15 @@ object WidgetUpdater {
     private suspend fun refresh(app: Context, widget: GlanceAppWidget, now: Long) {
         val ids = GlanceAppWidgetManager(app).getGlanceIds(widget.javaClass)
         if (ids.isEmpty()) return
+        val habits = app.container.habits.all()
+        val settings = app.container.settings.current()
         ids.forEach { id ->
+            // Migrate widgets that never got a tracker pinned: pin the one they show now, so they stop following the selection.
+            if (widget !is EventWidget) runCatching {
+                updateAppWidgetState(app, id) { p ->
+                    if (p[HabitKey] == null) WidgetSnapshot.claimHabitId(habits, 0L, settings)?.let { p[HabitKey] = it }
+                }
+            }
             runCatching { updateAppWidgetState(app, id) { it[RefreshKey] = WidgetRefresh.nextKey(it[RefreshKey], now) } }
             runCatching { widget.update(app, id) }
         }

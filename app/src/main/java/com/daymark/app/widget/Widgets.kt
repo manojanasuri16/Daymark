@@ -115,7 +115,7 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
         updateAppWidgetState(app, id) { prefs ->
             if (prefs[StyleKey] == null) prefs[StyleKey] = WidgetDefaults.get(app, realKind).id
             if (prefs[HabitKey] == null && h0.isNotEmpty()) {
-                prefs[HabitKey] = WidgetDefaults.habit(app, realKind).takeIf { d -> h0.any { it.id == d } } ?: s0.selectedHabitId
+                WidgetSnapshot.claimHabitId(h0, WidgetDefaults.habit(app, realKind), s0)?.let { prefs[HabitKey] = it }
             }
         }
         provideContent {
