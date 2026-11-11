@@ -67,6 +67,11 @@ ui/
   components/       DaymarkCard, pressScale, RollingNumber, ProgressRing, GrowingBar, Haptics…
   dashboard/ calendar/ log/ urge/ journal/ insights/ settings/ onboarding/ lock/ habits/ widgets/   (one screen each)
   share/ShareCard.kt  milestone image rendered on-device, shared via FileProvider + share sheet
+  ui/events/EventArt.kt  the ONE Canvas renderer of event cards (Text/Ring/Grid/Bars/Minimal; FULL/TRANSLUCENT/TRANSPARENT), pure function used by in-app cards, editor preview and the widget
+  ui/events/EventLayoutMath.kt  pure, unit-tested layout maths (aspect, ring arc, grid fit, item counts, text-fit search)
+  ui/events/EventCard.kt  Compose wrapper: renders EventArt off the main thread, minute granularity; EventCardPreviewSizes, rememberMinuteNow
+  ui/events/EventFonts.kt  10 bundled fonts (assets/fonts, subset variable TTFs, licences in third_party/FONTS.md); typeface()/weighted() cached, system fallback
+  ui/events/EventIcons.kt  fixed ~40-icon set mapped to Material Rounded vectors; draw() paints them onto a Canvas
 widget/
   Widgets.kt        DaymarkGlanceWidget base + Streak, Ring, Heatmap, Quote (shows reasons when not discreet), Actions (urge/journal/log), Stats; receivers
   WidgetStyle.kt    WidgetStyle enum (6 styles → res/values/widget_colors.xml), WidgetKind, WidgetDefaults
