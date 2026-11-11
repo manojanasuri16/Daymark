@@ -12,7 +12,7 @@ object WidgetArt {
 
     /** Progress ring with a round cap and a soft glow dot at the leading edge. */
     fun ring(sizePx: Int, progress: Float, palette: WidgetStyle.Palette, strokeFraction: Float = 0.085f): Bitmap {
-        val size = sizePx.coerceIn(64, 720)
+        val size = sizePx.coerceIn(64, 1100)
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val stroke = size * strokeFraction
@@ -52,8 +52,8 @@ object WidgetArt {
         status: (LocalDate) -> DayStatus,
         palette: WidgetStyle.Palette,
     ): Bitmap {
-        val w = widthPx.coerceIn(64, 1400)
-        val h = heightPx.coerceIn(32, 700)
+        val w = widthPx.coerceIn(64, 1800)
+        val h = heightPx.coerceIn(32, 1000)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val cols = weeks.coerceAtLeast(1)

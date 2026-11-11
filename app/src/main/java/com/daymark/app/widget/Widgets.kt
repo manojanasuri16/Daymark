@@ -215,9 +215,20 @@ private fun HeaderPill(snap: WidgetSnapshot, style: WidgetStyle) {
     }
 }
 
-/** Bitmap pixels for widget art drawn at many breakpoints: capped density keeps RemoteViews under the bitmap memory limit. */
-private fun artPx(context: Context, dp: Dp, maxDensity: Float = 1.75f): Int =
-    (dp.value * minOf(context.resources.displayMetrics.density, maxDensity)).toInt()
+/**
+ * Pixels per dp for bitmap art (ring, heatmap). Android rejects a widget update whose RemoteViews hold more than
+ * 6 x (screen width x height) bytes of bitmaps, and a responsive widget carries one bitmap per size variant. So the
+ * density is as sharp as the device allows (never above its own), lowered only if all the variants together would
+ * not fit: [areas] is the dp area of the art at every breakpoint. 20% is kept free for headroom.
+ */
+private fun artDensity(context: Context, areas: List<Float>): Float {
+    val m = context.resources.displayMetrics
+    val budgetPx = 6f * m.widthPixels * m.heightPixels / 4f * 0.8f
+    val totalDp = areas.sum().coerceAtLeast(1f)
+    return minOf(m.density, kotlin.math.sqrt(budgetPx / totalDp))
+}
+
+private fun artPx(dp: Dp, density: Float): Int = (dp.value * density).toInt().coerceAtLeast(1)
 
 private fun dpToPx(context: Context, dp: Dp): Int = (dp.value * context.resources.displayMetrics.density).toInt()
 
@@ -307,6 +318,15 @@ class StreakWidget : DaymarkGlanceWidget() {
     }
 }
 
+private val RING_PAD = 12.dp
+
+/** Side of the square ring art for a layout size (the layout is wide, tall or square; see RingWidget). */
+private fun ringDp(size: DpSize): Dp {
+    val wide = size.width - size.height >= 110.dp
+    val tall = !wide && size.height - size.width >= 34.dp
+    return minOf(size.width - RING_PAD * 2, size.height - RING_PAD * 2 - if (tall) 28.dp else 0.dp).coerceAtLeast(48.dp)
+}
+
 /** 2 — Progress ring toward the next milestone, with the streak in the centre. */
 class RingWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.RING
@@ -320,12 +340,13 @@ class RingWidget : DaymarkGlanceWidget() {
         val next = Milestones.next(days)
         val wide = size.width - size.height >= 110.dp
         val tall = !wide && size.height - size.width >= 34.dp
-        val pad = 12.dp
-        val ring: Dp = minOf(size.width - pad * 2, size.height - pad * 2 - if (tall) 28.dp else 0.dp).coerceAtLeast(48.dp)
+        val pad = RING_PAD
+        val ring: Dp = ringDp(size)
+        val density = artDensity(context, sizes.map { ringDp(it).value * ringDp(it).value })
         val ringContent = @Composable { mod: GlanceModifier ->
             Box(mod, contentAlignment = Alignment.Center) {
                 Image(
-                    ImageProvider(WidgetArt.ring(artPx(context, ring), Milestones.progress(snap.stats.currentMillis), style.palette(context))),
+                    ImageProvider(WidgetArt.ring(artPx(ring, density), Milestones.progress(snap.stats.currentMillis), style.palette(context))),
                     contentDescription = "Progress to next milestone",
                     contentScale = androidx.glance.layout.ContentScale.Fit,
                     modifier = GlanceModifier.fillMaxSize(),
@@ -365,6 +386,16 @@ class RingWidget : DaymarkGlanceWidget() {
 }
 
 /** 3 — Heatmap of recent weeks: clean / slip / untracked, today outlined. */
+private val HEAT_PAD = 14.dp
+
+private fun heatHeader(size: DpSize): Dp = if (size.height >= 130.dp) 42.dp else 0.dp
+
+/** Width and height of the heatmap art for a layout size. */
+private fun heatGrid(size: DpSize): Pair<Dp, Dp> {
+    val header = heatHeader(size)
+    return (size.width - HEAT_PAD * 2) to (size.height - HEAT_PAD * 2 - header - if (header > 0.dp) 8.dp else 0.dp)
+}
+
 class HeatmapWidget : DaymarkGlanceWidget() {
     override val kind = WidgetKind.HEATMAP
     override val sizes = setOf(
@@ -375,10 +406,10 @@ class HeatmapWidget : DaymarkGlanceWidget() {
     override fun Content(snap: WidgetSnapshot, style: WidgetStyle, prefs: Preferences) {
         val size = LocalSize.current
         val context = LocalContext.current
-        val pad = 14.dp
-        val header = if (size.height >= 130.dp) 42.dp else 0.dp
-        val gridW = size.width - pad * 2
-        val gridH = size.height - pad * 2 - header - if (header > 0.dp) 8.dp else 0.dp
+        val pad = HEAT_PAD
+        val header = heatHeader(size)
+        val (gridW, gridH) = heatGrid(size)
+        val density = artDensity(context, sizes.map { heatGrid(it).let { g -> g.first.value * g.second.value } })
         val cell = gridH.value / (7 + 6 * 0.22f)
         val weeks = ((gridW.value + cell * 0.22f) / (cell * 1.22f)).toInt().coerceIn(4, 53)
 
@@ -408,10 +439,12 @@ class HeatmapWidget : DaymarkGlanceWidget() {
             }
             Image(
                 ImageProvider(
-                    WidgetArt.heatmap(artPx(context, gridW, 1.25f), artPx(context, gridH, 1.25f), weeks, snap.today, snap::status, style.palette(context)),
+                    WidgetArt.heatmap(artPx(gridW, density), artPx(gridH, density), weeks, snap.today, snap::status, style.palette(context)),
                 ),
                 contentDescription = "$clean clean days and $slips slips in the last $weeks weeks",
-                contentScale = androidx.glance.layout.ContentScale.FillBounds,
+                // Fit, not FillBounds: the widget can be a little larger than the breakpoint the art was drawn for,
+                // and stretching would squash the cells. Fit scales both ways equally, so they stay square.
+                contentScale = androidx.glance.layout.ContentScale.Fit,
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
             )
         }
