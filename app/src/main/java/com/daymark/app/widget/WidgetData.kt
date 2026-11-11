@@ -6,7 +6,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import com.daymark.app.domain.WidgetRefresh
 import com.daymark.app.container
 import com.daymark.app.data.Settings
 import com.daymark.app.domain.BuildDay
@@ -121,33 +124,61 @@ object WidgetUpdater {
     /** Refresh every Daymark widget, then schedule the next refresh at the next meaningful moment. */
     suspend fun updateAll(context: Context) {
         val app = context.applicationContext
-        runCatching { StreakWidget().updateAll(app) }
-        runCatching { RingWidget().updateAll(app) }
-        runCatching { HeatmapWidget().updateAll(app) }
-        runCatching { QuoteWidget().updateAll(app) }
-        runCatching { ActionsWidget().updateAll(app) }
-        runCatching { StatsWidget().updateAll(app) }
+        val now = System.currentTimeMillis()
+        runCatching { refresh(app, StreakWidget(), now) }
+        runCatching { refresh(app, RingWidget(), now) }
+        runCatching { refresh(app, HeatmapWidget(), now) }
+        runCatching { refresh(app, QuoteWidget(), now) }
+        runCatching { refresh(app, ActionsWidget(), now) }
+        runCatching { refresh(app, StatsWidget(), now) }
+        runCatching { refresh(app, EventWidget(), now) }
         runCatching { scheduleNext(app) }
     }
 
     /**
-     * The chronometer ticks by itself, but the day count, ring and heatmap change only at
-     * the next streak-day boundary or local midnight — wake up exactly then (WorkManager, no exact-alarm permission).
+     * Stamps every placed instance with a fresh RefreshKey BEFORE updating it. A still-running Glance session otherwise
+     * re-uses its composition when nothing it reads has changed (the ring kept yesterday's day count after midnight);
+     * the changed state forces a recompose, which rebuilds the snapshot from the current clock.
+     */
+    private suspend fun refresh(app: Context, widget: GlanceAppWidget, now: Long) {
+        val ids = GlanceAppWidgetManager(app).getGlanceIds(widget.javaClass)
+        if (ids.isEmpty()) return
+        ids.forEach { id ->
+            runCatching { updateAppWidgetState(app, id) { it[RefreshKey] = WidgetRefresh.nextKey(it[RefreshKey], now) } }
+            runCatching { widget.update(app, id) }
+        }
+    }
+
+    /**
+     * The chronometer ticks by itself, but the day count, ring and heatmap change only at the next streak-day
+     * boundary or local midnight; event widgets also need event completions and a periodic refresh (the user's
+     * 15 or 30 minute setting) for displayed-unit changes. WorkManager only: no exact-alarm permission, and never
+     * more often than every 15 s.
      */
     private suspend fun scheduleNext(context: Context) {
-        val habits = context.container.habits.all()
-        if (habits.isEmpty()) return
-        val relapses = context.container.relapses.all()
-        val comps = context.container.completions.all()
+        val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
-        val today = StreakEngine.toDate(now, ZoneId.systemDefault())
-        val nextMidnight = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        // Earliest upcoming streak-day boundary across every tracker (any widget may show any tracker).
-        val nextStreakDay = habits.minOf { h ->
-            val st = WidgetSnapshot.from(h, relapses, now, completions = comps).stats
-            st.currentStart + (st.currentDays + 1) * StreakStats.DAY_MS
+        val today = StreakEngine.toDate(now, zone)
+        val nextMidnight = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        var at = Long.MAX_VALUE
+        val habits = context.container.habits.all()
+        if (habits.isNotEmpty()) {
+            val relapses = context.container.relapses.all()
+            val comps = context.container.completions.all()
+            // Earliest upcoming streak-day boundary across every tracker (any widget may show any tracker).
+            val nextStreakDay = habits.minOf { h ->
+                val st = WidgetSnapshot.from(h, relapses, now, completions = comps).stats
+                st.currentStart + (st.currentDays + 1) * StreakStats.DAY_MS
+            }
+            at = minOf(nextStreakDay, nextMidnight)
         }
-        val delay = (minOf(nextStreakDay, nextMidnight) - now).coerceIn(15_000L, StreakStats.DAY_MS) + 2_000L
+        val hasEventWidget = GlanceAppWidgetManager(context).getGlanceIds(EventWidget::class.java).isNotEmpty()
+        if (hasEventWidget) {
+            val minutes = context.container.settings.current().widgetRefreshMinutes
+            at = minOf(at, WidgetRefresh.nextEventRefresh(context.container.events.all(), now, minutes, zone))
+        }
+        if (at == Long.MAX_VALUE) return
+        val delay = (at - now).coerceIn(WidgetRefresh.MIN_DELAY_MS, StreakStats.DAY_MS) + 2_000L
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .build()

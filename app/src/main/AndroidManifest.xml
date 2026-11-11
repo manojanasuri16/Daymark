@@ -75,6 +75,21 @@
         </receiver>
 
         <receiver
+            android:name=".widget.EventWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_event_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_event_info" />
+        </receiver>
+
+        <receiver
             android:name=".widget.RingWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_ring_name">
@@ -164,6 +179,17 @@
 
         <activity
             android:name=".widget.WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Daymark">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".widget.EventWidgetConfigActivity"
             android:exported="true"
             android:excludeFromRecents="true"
             android:taskAffinity=""

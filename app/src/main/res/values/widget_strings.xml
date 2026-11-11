@@ -11,4 +11,6 @@
     <string name="widget_actions_description">Ride out an urge, journal or log in one tap</string>
     <string name="widget_stats_name">Your progress</string>
     <string name="widget_stats_description">Money kept, urges ridden out, clean days and best streak</string>
+    <string name="widget_event_name">Event</string>
+    <string name="widget_event_description">A countdown, time-since or timer card in the design you made</string>
 </resources>

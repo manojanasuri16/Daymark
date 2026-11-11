@@ -79,6 +79,8 @@ widget/
   WidgetStyle.kt    WidgetStyle enum (6 styles → res/values/widget_colors.xml), WidgetKind, WidgetDefaults
   WidgetData.kt     WidgetSnapshot (per-tracker data), WidgetUpdater + WorkManager refresh at the next day boundary
   WidgetArt.kt      bitmaps Glance can't draw: ring, heatmap, progress bar
+  EventWidget.kt    EventWidget (WidgetKind.EVENT, receiver EventWidgetReceiver): EventArt as one Fit-scaled bitmap per Responsive breakpoint (artDensity budget), tap opens Routes.event(id), empty state "Choose an event" opens the config. Glance keys EventIdKey/QueueKey/QueueNKey/BgModeKey. Never shows habit data; honours showNameOutside. Own content path (provideEventContent), not the habit snapshot
+  EventWidgetConfigActivity.kt  "Select an event": queue switch + Nth nearest, event grid, background Full/Translucent/Transparent
   WidgetPreview.kt  Compose mirror of each widget (used by the style picker and in-app gallery)
   WidgetConfigActivity.kt  style + tracker picker (launcher "configure"), WidgetPinnedReceiver
 ui/events/   Events tab (5th bottom-bar tab): EventsScreen (filter/sort/size pills persisted in settings, LazyVerticalGrid of EventCard, long-press menu, speed-dial FAB, battery nag, empty state), EventEditorScreen(vm, eventId, kind, onClose, onDeleted) behind route `event?id=&kind=` (modal slide-up; full editor, see below), EventCard/EventArt renderer. Pure list logic in domain/EventListLogic.kt (archived only under Archived; repeating/open-ended events are always ongoing). Notifications open an event via Routes.event(id) ("event:<id>").
@@ -132,6 +134,8 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 4. Add a case to `WidgetPreview`.
 5. Add it to `WidgetUpdater.updateAll`.
 
+**Event widgets** (done in `EventWidget.kt`): `domain/WidgetRefresh.kt` holds the pure timing (`nextEventRefresh`: earliest of midnight, event completion and `widgetRefreshMinutes` 15/30; never under 15 s; WorkManager only, no exact alarms) and `nextKey`. `WidgetUpdater.scheduleNext` considers those only while an event widget is placed.
+
 **Add an accent**
 - Add an entry to `Accent` in `Theme.kt`. The picker lists the entries automatically.
 
@@ -159,6 +163,8 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - Debug and release builds have different signatures, so switching between them on a device needs an uninstall (`scripts/emulator.sh` handles it).
 - AppDrop screenshots must be at most 2:1. The emulator's 1080×2400 shots are padded to 1200×2400.
 - `.agents/` and `.claude/` (the installed `apple-design` skill) are tooling and are git-ignored.
+
+- **`RefreshKey` (stale widgets after a day change):** a still-running Glance session re-uses its composition when nothing it reads changed, so the Ring widget kept yesterday's day count after DATE_CHANGED. `WidgetUpdater.updateAll` therefore writes `RefreshKey` (`WidgetRefresh.nextKey`, strictly increasing millis) into every placed widget's Glance state BEFORE `update()`, and `provideContent` reads it and rebuilds the snapshot from `System.currentTimeMillis()`. Every new widget kind must go through `WidgetUpdater.refresh`, and must read `currentState` in its content.
 
 ## Signing and secrets
 

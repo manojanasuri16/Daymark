@@ -186,6 +186,14 @@ fun WidgetPreview(kind: WidgetKind, style: WidgetStyle, snap: WidgetSnapshot?, m
                     }
                 }
             }
+            WidgetKind.EVENT -> Column(Modifier.fillMaxSize().padding(16.dp)) {
+                Text("Summer trip", color = text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("42 days left", color = soft, fontSize = 13.sp, maxLines = 1)
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(track)) {
+                    Box(Modifier.fillMaxWidth(0.4f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(accent))
+                }
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -74,6 +75,11 @@ import kotlinx.coroutines.withContext
 
 val StyleKey = stringPreferencesKey("style")
 val HabitKey = longPreferencesKey("habit")
+val RefreshKey = longPreferencesKey("refresh")
+val EventIdKey = longPreferencesKey("event_id")
+val QueueKey = booleanPreferencesKey("event_queue")
+val QueueNKey = intPreferencesKey("event_queue_n")
+val BgModeKey = stringPreferencesKey("event_bg_mode")
 private val QuoteOffsetKey = intPreferencesKey("quote_offset")
 
 /** Shared plumbing: live data flows, per-widget style, themed frame, tap-to-open. */
@@ -90,12 +96,6 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val app = context.applicationContext
-        // A new widget claims the pending default style once, so later gallery changes don't restyle it.
-        val s0 = withContext(Dispatchers.IO) { app.container.settings.current() }
-        val h0 = withContext(Dispatchers.IO) { app.container.habits.all() }
-        val r0 = withContext(Dispatchers.IO) { app.container.relapses.all() }
-        val u0 = withContext(Dispatchers.IO) { app.container.urges.allEntities().map { it.toRecord() } }
-        val c0 = withContext(Dispatchers.IO) { app.container.completions.all() }
         // Glance keeps one running session per widget id, and every later update() for that id, from any
         // GlanceAppWidget class, is routed into it. If a session was ever started by the wrong class (a refresh
         // that resolved the wrong kind), the widget kept drawing that class's layout, e.g. a ring widget showing
@@ -104,6 +104,13 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
         val realKind = withContext(Dispatchers.IO) {
             runCatching { kindOfAppWidget(app, GlanceAppWidgetManager(app).getAppWidgetId(id)) }.getOrNull()
         } ?: kind
+        if (realKind == WidgetKind.EVENT) { provideEventContent(app, id); return }
+        // A new widget claims the pending default style once, so later gallery changes don't restyle it.
+        val s0 = withContext(Dispatchers.IO) { app.container.settings.current() }
+        val h0 = withContext(Dispatchers.IO) { app.container.habits.all() }
+        val r0 = withContext(Dispatchers.IO) { app.container.relapses.all() }
+        val u0 = withContext(Dispatchers.IO) { app.container.urges.allEntities().map { it.toRecord() } }
+        val c0 = withContext(Dispatchers.IO) { app.container.completions.all() }
         val renderer: DaymarkGlanceWidget = if (realKind == kind) this else realKind.widget() as DaymarkGlanceWidget
         updateAppWidgetState(app, id) { prefs ->
             if (prefs[StyleKey] == null) prefs[StyleKey] = WidgetDefaults.get(app, realKind).id
@@ -120,7 +127,9 @@ abstract class DaymarkGlanceWidget : GlanceAppWidget() {
             val prefs = currentState<Preferences>()
             val style = WidgetStyle.of(prefs[StyleKey])
             val habit = if (settings.onboarded) WidgetSnapshot.resolveHabit(habits, prefs[HabitKey], settings) else null
-            val snap = WidgetSnapshot.from(habit, relapses, urges = urges, discreet = settings.discreet, completions = completions)
+            // RefreshKey changes on every WidgetUpdater refresh, so a still-running session recomposes and the
+            // snapshot is rebuilt from the current clock (never reuse a stale composition across a day change).
+            val snap = WidgetSnapshot.from(habit, relapses, now = System.currentTimeMillis().also { prefs[RefreshKey] }, urges = urges, discreet = settings.discreet, completions = completions)
             Box(
                 GlanceModifier
                     .fillMaxSize()
@@ -221,14 +230,14 @@ private fun HeaderPill(snap: WidgetSnapshot, style: WidgetStyle) {
  * density is as sharp as the device allows (never above its own), lowered only if all the variants together would
  * not fit: [areas] is the dp area of the art at every breakpoint. 20% is kept free for headroom.
  */
-private fun artDensity(context: Context, areas: List<Float>): Float {
+internal fun artDensity(context: Context, areas: List<Float>): Float {
     val m = context.resources.displayMetrics
     val budgetPx = 6f * m.widthPixels * m.heightPixels / 4f * 0.8f
     val totalDp = areas.sum().coerceAtLeast(1f)
     return minOf(m.density, kotlin.math.sqrt(budgetPx / totalDp))
 }
 
-private fun artPx(dp: Dp, density: Float): Int = (dp.value * density).toInt().coerceAtLeast(1)
+internal fun artPx(dp: Dp, density: Float): Int = (dp.value * density).toInt().coerceAtLeast(1)
 
 private fun dpToPx(context: Context, dp: Dp): Int = (dp.value * context.resources.displayMetrics.density).toInt()
 
@@ -648,6 +657,7 @@ class HeatmapWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceA
 class QuoteWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = QuoteWidget() }
 class ActionsWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = ActionsWidget() }
 class StatsWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = StatsWidget() }
+class EventWidgetReceiver : DaymarkWidgetReceiverBase() { override val glanceAppWidget: GlanceAppWidget = EventWidget() }
 
 fun WidgetKind.receiver(): Class<out GlanceAppWidgetReceiver> = when (this) {
     WidgetKind.STREAK -> DaymarkWidgetReceiver::class.java
@@ -656,6 +666,7 @@ fun WidgetKind.receiver(): Class<out GlanceAppWidgetReceiver> = when (this) {
     WidgetKind.QUOTE -> QuoteWidgetReceiver::class.java
     WidgetKind.ACTIONS -> ActionsWidgetReceiver::class.java
     WidgetKind.STATS -> StatsWidgetReceiver::class.java
+    WidgetKind.EVENT -> EventWidgetReceiver::class.java
 }
 
 fun WidgetKind.widget(): GlanceAppWidget = when (this) {
@@ -665,6 +676,7 @@ fun WidgetKind.widget(): GlanceAppWidget = when (this) {
     WidgetKind.QUOTE -> QuoteWidget()
     WidgetKind.ACTIONS -> ActionsWidget()
     WidgetKind.STATS -> StatsWidget()
+    WidgetKind.EVENT -> EventWidget()
 }
 
 /**
