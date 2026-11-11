@@ -1,0 +1,4 @@
+New in 1.7.1:
+• A quiet hint on Today now shows how to add a tracker to your home screen: hold the circle
+• The hint appears for your first few visits and stops once you have tried it
+• Tip on the Widgets screen about the shortcut

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1 — 2026-11-11 (versionCode 16)
+
+• A quiet hint on Today now shows how to add a tracker to your home screen: hold the circle
+• The hint appears for your first few visits and stops once you have tried it
+• Tip on the Widgets screen about the shortcut
+
+
 ## 1.7.0 — 2026-11-11 (versionCode 15)
 
 • Press and hold any tracker's circle or chip to add it to your home screen: preview the widgets, pick a style, done
