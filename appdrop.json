@@ -11,16 +11,18 @@
   "visibility": "public",
   "icon": "appdrop/icon.png",
   "screenshots": [
+    "appdrop/screenshots/v16_1_events_home.png",
+    "appdrop/screenshots/v16_2_event_editor.png",
+    "appdrop/screenshots/v16_3_event_styles.png",
+    "appdrop/screenshots/v16_4_event_widgets.png",
+    "appdrop/screenshots/v16_5_wizard.png",
+    "appdrop/screenshots/v16_6_event_notifications.png",
     "appdrop/screenshots/v14_1_build_today.png",
     "appdrop/screenshots/v14_2_build_stats.png",
     "appdrop/screenshots/v15_1_not_a_slip_choice.png",
     "appdrop/screenshots/v15_2_not_a_slip_calendar.png",
     "appdrop/screenshots/v14_7_build_editor.png",
-    "appdrop/screenshots/v14_3_build_calendar.png",
-    "appdrop/screenshots/v14_4_build_insights.png",
-    "appdrop/screenshots/v14_6_break_today.png",
-    "appdrop/screenshots/6_widgets.png",
-    "appdrop/screenshots/7_dark.png"
+    "appdrop/screenshots/v14_3_build_calendar.png"
   ],
   "descriptionFile": "appdrop/description.md",
   "assetPattern": "Daymark-*.apk"

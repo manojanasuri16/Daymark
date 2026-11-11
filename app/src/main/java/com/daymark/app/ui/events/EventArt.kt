@@ -260,11 +260,12 @@ object EventArt {
             area = RectF(c.left, c.top + headH + gapOuter, c.right, c.bottom)
         }
         val headUsed = drawHeader(canvas, st, d, head, Layout.Alignment.ALIGN_NORMAL, titleLines = 1, primaryScale = 0.95f, primaryLines = if (wide) 3 else 1)
-        if (!wide && o.showDetails && area.height() > st.dp(60f) && headUsed < head.height() - st.dp(8f)) {
-            // detail date to the right of the header on roomy cards
-            val dr = RectF(head.left, head.top, head.right, head.top + st.dp(st.baseDp * 0.9f))
-            val size = st.dp(max(9f, st.baseDp * 0.62f))
-            val l = fit(d.detail, paint(st.lightTf, st.detailColor, size), dr.width(), 1, st.dp(8f), size, dr.height() * 2, Layout.Alignment.ALIGN_OPPOSITE)
+        val detailSize = st.dp(max(9f, st.baseDp * 0.62f))
+        val detailH = detailSize * 1.3f
+        if (!wide && o.showDetails && area.height() > st.dp(60f) && headUsed + detailH + st.dp(2f) <= head.height()) {
+            // detail date on its own line at the foot of the header, so it never overlaps the title
+            val dr = RectF(head.left, head.bottom - detailH, head.right, head.bottom)
+            val l = fit(d.detail, paint(st.lightTf, st.detailColor, detailSize), dr.width(), 1, st.dp(8f), detailSize, dr.height() * 2, Layout.Alignment.ALIGN_NORMAL)
             draw(canvas, l, dr.left, dr.top)
         }
         if (area.width() < st.dp(12f) || area.height() < st.dp(8f)) return
