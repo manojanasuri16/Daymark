@@ -1,0 +1,4 @@
+New in 1.7.0:
+• Press and hold any tracker's circle or chip to add it to your home screen: preview the widgets, pick a style, done
+• The widget is created already set to that tracker and stays on it when you switch trackers
+• New widgets button in the Today header, and a one-time tip to help you find it

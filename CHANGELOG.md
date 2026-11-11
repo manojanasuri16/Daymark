@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 — 2026-11-11 (versionCode 15)
+
+• Press and hold any tracker's circle or chip to add it to your home screen: preview the widgets, pick a style, done
+• The widget is created already set to that tracker and stays on it when you switch trackers
+• New widgets button in the Today header, and a one-time tip to help you find it
+
+
 ## 1.6.4 — 2026-11-11 (versionCode 14)
 
 • Widgets now stay on the tracker you set them up for: switching trackers inside the app no longer changes what an existing widget shows
