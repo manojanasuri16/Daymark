@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 — 2026-11-11 (versionCode 9)
+
+• Sharper widgets: the ring and heatmap are now drawn at your screen's full resolution instead of being stretched
+• The heatmap widget keeps its squares square when resized
+
+
 ## 1.5.0 — 2026-11-11 (versionCode 8)
 
 • New "Not a slip" option when logging: save an involuntary or not-a-slip moment as a private note that never touches your streak

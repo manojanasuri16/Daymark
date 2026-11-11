@@ -1,0 +1,3 @@
+New in 1.5.1:
+• Sharper widgets: the ring and heatmap are now drawn at your screen's full resolution instead of being stretched
+• The heatmap widget keeps its squares square when resized
