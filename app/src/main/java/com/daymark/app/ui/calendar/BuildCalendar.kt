@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.domain.BuildDay
 import com.daymark.app.domain.BuildEngine
 import com.daymark.app.domain.Habit
+import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.Messages
 import com.daymark.app.domain.Schedule
 import com.daymark.app.ui.MainViewModel
@@ -84,9 +86,12 @@ internal fun BuildCalendarScreen(
     contentPadding: PaddingValues,
     habit: Habit,
     onJournalForDay: (LocalDate) -> Unit,
+    onEditJournal: (JournalEntry) -> Unit = {},
 ) {
     val completions by vm.completions.collectAsStateWithLifecycle()
+    val journal by vm.journal.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
+    val journalDays = remember(journal) { journal.map { java.time.Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }.toSet() }
     val today = LocalDate.now()
     val mask = Schedule.normalize(habit.scheduleDays)
     val amounts = remember(completions) { completions.groupBy { it.date }.mapValues { (_, v) -> v.sumOf { it.amount } } }
@@ -141,6 +146,7 @@ internal fun BuildCalendarScreen(
                         today = today,
                         selected = selected,
                         statusOf = statusOf,
+                        journalDays = journalDays,
                         onSelect = { selectedEpochDay = it.toEpochDay() },
                     )
                 }
@@ -220,6 +226,8 @@ internal fun BuildCalendarScreen(
                 }
             }
         }
+        val dayJournal = journal.filter { java.time.Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() == selected }.sortedBy { it.timestamp }
+        items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
         if (!selected.isAfter(today)) {
             item("journalDay") {
                 OutlinedButton(
@@ -247,6 +255,7 @@ private fun BuildMonthGrid(
     today: LocalDate,
     selected: LocalDate,
     statusOf: (LocalDate) -> BuildDay,
+    journalDays: Set<LocalDate>,
     onSelect: (LocalDate) -> Unit,
 ) {
     val first = month.atDay(1)
@@ -260,7 +269,7 @@ private fun BuildMonthGrid(
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(3.dp), contentAlignment = Alignment.Center) {
                         if (index in offset until cells) {
                             val date = month.atDay(index - offset + 1)
-                            BuildDayCell(date, statusOf(date), date == today, date == selected) { onSelect(date) }
+                            BuildDayCell(date, statusOf(date), date == today, date == selected, date in journalDays) { onSelect(date) }
                         }
                     }
                 }
@@ -270,7 +279,7 @@ private fun BuildMonthGrid(
 }
 
 @Composable
-private fun BuildDayCell(date: LocalDate, status: BuildDay, isToday: Boolean, isSelected: Boolean, onClick: () -> Unit) {
+private fun BuildDayCell(date: LocalDate, status: BuildDay, isToday: Boolean, isSelected: Boolean, hasJournal: Boolean, onClick: () -> Unit) {
     val colors = DaymarkTheme.colors
     val haptics = rememberHaptics()
     val source = remember { MutableInteractionSource() }
@@ -290,30 +299,33 @@ private fun BuildDayCell(date: LocalDate, status: BuildDay, isToday: Boolean, is
     }
     val pendingRing = if (status == BuildDay.PENDING) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier
     val label = status.name.lowercase().replaceFirstChar(Char::uppercase)
-    Box(
-        Modifier
-            .fillMaxSize()
-            .semantics { contentDescription = "${date.dayOfMonth}, $label" }
-            .pressScale(source, 0.9f)
-            .clip(CircleShape)
-            .then(if (isSelected) Modifier.border(2.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else pendingRing)
-            .clickable(source, null) { haptics.tick(); onClick() }
-            .padding(if (isSelected) 4.dp else 0.dp)
-            .clip(CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Surface(color = bg, shape = CircleShape, modifier = Modifier.fillMaxSize()) {}
-        Text(
-            date.dayOfMonth.toString(),
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium),
-            color = textColor,
-        )
-        if (isToday) {
-            Surface(
-                color = textColor, shape = CircleShape,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(4.dp),
-            ) {}
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .semantics { contentDescription = "${date.dayOfMonth}, $label" + if (hasJournal) ", journal entry" else "" }
+                .pressScale(source, 0.9f)
+                .clip(CircleShape)
+                .then(if (isSelected) Modifier.border(2.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else pendingRing)
+                .clickable(source, null) { haptics.tick(); onClick() }
+                .padding(if (isSelected) 4.dp else 0.dp)
+                .clip(CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(color = bg, shape = CircleShape, modifier = Modifier.fillMaxSize()) {}
+            Text(
+                date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium),
+                color = textColor,
+            )
+            if (isToday) {
+                Surface(
+                    color = textColor, shape = CircleShape,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(4.dp),
+                ) {}
+            }
         }
+        if (hasJournal) JournalBadge()
     }
 }
 
@@ -325,6 +337,10 @@ private fun BuildLegend() {
         LegendItem(c.partial, "Partly")
         LegendItem(c.relapse.copy(alpha = 0.5f), "Missed")
         LegendItem(c.untracked, "Rest")
+    }
+    Spacer(Modifier.height(6.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        LegendItem(MaterialTheme.colorScheme.primary, "Journal entry")
     }
 }
 

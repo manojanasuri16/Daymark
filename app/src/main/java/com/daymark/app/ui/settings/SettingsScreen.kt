@@ -305,7 +305,7 @@ fun SettingsScreen(
         item { SectionHeader("Home screen & quick access") }
         item {
             Group {
-                SettingRow(Icons.Rounded.Widgets, "Widgets", "Streak, progress ring, heatmap and daily motivation — five styles", onClick = onOpenWidgets)
+                SettingRow(Icons.Rounded.Widgets, "Widgets", "Streak, progress ring, heatmap and daily motivation — six styles, plus events", onClick = onOpenWidgets)
                 Divider()
                 SettingRow(
                     Icons.Rounded.Shield, "Quick Settings tile",

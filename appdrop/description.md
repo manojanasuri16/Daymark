@@ -7,6 +7,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 - **Not a slip:** save an involuntary or not-a-slip moment as a private note that never touches your streak
 - **Sharper widgets:** the ring and heatmap are drawn at your screen's full resolution
 - **Add to home screen from inside the app:** long-press an event card or use the editor menu
+- **Journal days on the Calendar:** a badge marks every day you journalled
 
 ## Build a habit
 - Presets such as drink water, read, work out, meditate, walk, stretch, journal or sleep earlier, or make your own
@@ -29,7 +30,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 
 ## Journal, Calendar and Insights
 - A journal for any day, with a mood, a gentle prompt and up to three photos that stay inside Daymark
-- A swipeable calendar: clean days in green, slips in red, untracked days in grey, with a dot on days that have a note
+- A swipeable calendar: clean days in green, slips in red, untracked days in grey, with a dot on days that have a note and a small badge on every day you wrote a journal entry, so you can always find them (build habits get the same badge and show that day's entries)
 - Track as many habits as you like. Each tracker keeps its own streaks, calendar, insights and achievements
 
 ## Events

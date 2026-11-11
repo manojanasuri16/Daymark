@@ -5,7 +5,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -92,7 +94,7 @@ fun CalendarScreen(
 ) {
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
     habit?.takeIf { it.isBuild }?.let { h ->
-        BuildCalendarScreen(vm, contentPadding, h, onJournalForDay)
+        BuildCalendarScreen(vm, contentPadding, h, onJournalForDay, onEditJournal)
         return
     }
     val relapses by vm.relapses.collectAsStateWithLifecycle()
@@ -106,6 +108,7 @@ fun CalendarScreen(
     val earliest = slipTimes.minOrNull()
     val startDate = StreakEngine.toDate(earliest?.let { minOf(it, journeyStart) } ?: journeyStart, zone)
     val noteDays = remember(notes) { notes.map { StreakEngine.toDate(it.timestamp, zone) }.toSet() }
+    val journalDays = remember(journal) { journal.map { StreakEngine.toDate(it.timestamp, zone) }.toSet() }
     val relapseDates = remember(slipTimes) { StreakEngine.relapseDates(slipTimes, zone) }
 
     val firstMonth = YearMonth.from(startDate).let { if (it.isAfter(YearMonth.from(today))) YearMonth.from(today) else it }
@@ -165,6 +168,7 @@ fun CalendarScreen(
                         selected = selected,
                         statusOf = statusOf,
                         noteDays = noteDays,
+                        journalDays = journalDays,
                         onSelect = { selectedEpochDay = it.toEpochDay() },
                     )
                 }
@@ -267,6 +271,7 @@ private fun MonthGrid(
     selected: LocalDate,
     statusOf: (LocalDate) -> DayStatus,
     noteDays: Set<LocalDate>,
+    journalDays: Set<LocalDate>,
     onSelect: (LocalDate) -> Unit,
 ) {
     val first = month.atDay(1)
@@ -282,7 +287,7 @@ private fun MonthGrid(
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(3.dp), contentAlignment = Alignment.Center) {
                         if (index in offset until cells) {
                             val date = month.atDay(day)
-                            DayCell(date, statusOf(date), date == today, date == selected, date in noteDays) { onSelect(date) }
+                            DayCell(date, statusOf(date), date == today, date == selected, date in noteDays, date in journalDays) { onSelect(date) }
                         }
                     }
                 }
@@ -292,7 +297,7 @@ private fun MonthGrid(
 }
 
 @Composable
-private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSelected: Boolean, hasNote: Boolean, onClick: () -> Unit) {
+private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSelected: Boolean, hasNote: Boolean, hasJournal: Boolean, onClick: () -> Unit) {
     val colors = DaymarkTheme.colors
     val haptics = rememberHaptics()
     val source = remember { MutableInteractionSource() }
@@ -303,36 +308,53 @@ private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSele
     }
     val bg by animateColorAsState(fill.copy(alpha = if (status == DayStatus.UNTRACKED) 0.6f else 0.9f), Motion.standard(), label = "cell")
     val textColor = if (status == DayStatus.UNTRACKED) MaterialTheme.colorScheme.onSurfaceVariant else Color.White
-    Box(
-        Modifier
-            .fillMaxSize()
-            .pressScale(source, 0.9f)
-            .clip(CircleShape)
-            .then(if (isSelected) Modifier.border(2.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-            .clickable(source, null) { haptics.tick(); onClick() }
-            .padding(if (isSelected) 4.dp else 0.dp)
-            .clip(CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Surface(color = bg, shape = CircleShape, modifier = Modifier.fillMaxSize()) {}
-        Text(
-            date.dayOfMonth.toString(),
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium),
-            color = textColor,
-        )
-        if (isToday) {
-            Surface(
-                color = textColor, shape = CircleShape,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(4.dp),
-            ) {}
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pressScale(source, 0.9f)
+                .clip(CircleShape)
+                .then(if (isSelected) Modifier.border(2.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                .clickable(source, null) { haptics.tick(); onClick() }
+                .padding(if (isSelected) 4.dp else 0.dp)
+                .clip(CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(color = bg, shape = CircleShape, modifier = Modifier.fillMaxSize()) {}
+            Text(
+                date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium),
+                color = textColor,
+            )
+            if (isToday) {
+                Surface(
+                    color = textColor, shape = CircleShape,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(4.dp),
+                ) {}
+            }
+            if (hasNote) {
+                Surface(
+                    color = textColor.copy(alpha = 0.85f), shape = CircleShape,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(4.dp),
+                ) {}
+            }
         }
-        if (hasNote) {
-            Surface(
-                color = textColor.copy(alpha = 0.85f), shape = CircleShape,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(4.dp),
-            ) {}
-        }
+        if (hasJournal) JournalBadge()
     }
+}
+
+/**
+ * Marks a day that has a journal entry: a small accent badge sitting on the rim of the day circle (top right), outlined so it
+ * reads on any fill. Place it OUTSIDE the clipped, padded circle, so the selected-day ring never squeezes it onto the digits.
+ */
+@Composable
+internal fun BoxScope.JournalBadge() {
+    Surface(
+        color = MaterialTheme.colorScheme.primary,
+        shape = CircleShape,
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.surface),
+        modifier = Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 1.dp).size(10.dp),
+    ) {}
 }
 
 @Composable
@@ -342,6 +364,7 @@ private fun Legend() {
         LegendItem(c.clean, "Clean")
         LegendItem(c.relapse, "Slip")
         LegendItem(c.untracked, "Untracked")
+        LegendItem(MaterialTheme.colorScheme.primary, "Journal")
     }
 }
 
@@ -449,7 +472,7 @@ private fun NoteCard(n: NonSlipNote, zone: ZoneId, onClick: () -> Unit) {
 }
 
 @Composable
-private fun JournalCard(j: JournalEntry, zone: ZoneId, onClick: () -> Unit) {
+internal fun JournalCard(j: JournalEntry, zone: ZoneId, onClick: () -> Unit) {
     val time = Instant.ofEpochMilli(j.timestamp).atZone(zone).toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     DaymarkCard(Modifier.fillMaxWidth(), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
