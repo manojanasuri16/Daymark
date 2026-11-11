@@ -71,6 +71,8 @@ ui/
   ui/events/EventLayoutMath.kt  pure, unit-tested layout maths (aspect, ring arc, grid fit, item counts, text-fit search)
   ui/events/EventCard.kt  Compose wrapper: renders EventArt off the main thread, minute granularity; EventCardPreviewSizes, rememberMinuteNow
   ui/events/EventFonts.kt  10 bundled fonts (assets/fonts, subset variable TTFs, licences in third_party/FONTS.md); typeface()/weighted() cached, system fallback
+  ui/events/EventEditorScreen.kt  full editor: pinned live EventCard (hidden while the keyboard is up), floating pill tab bar Dates/Counting/Style (+ overflow Duplicate/Archive/Delete for saved events), Save disabled unless valid and changed, discard confirm; the draft survives rotation via `EventDraftCodec` JSON in rememberSaveable; `newEventDraft(kind)` gives per-kind defaults + random preset. Tabs in EventDatesTab.kt (incl. full-screen DateEditor overlay, type switch only for NEW events), EventCountingTab.kt, EventStyleTab.kt (design pager, per-design options, colour/font/icon sheets in EventEditorSheets.kt, shared widgets in EventEditorParts.kt); EventShare.kt shares the card as PNG via the `.share` FileProvider
+  domain/EventEditing.kt  pure editor helpers (timer duration caps/validation, normalize = timer end from duration, repeat availability vs duration, kind conversion, span/total text, accessory choices, hex/HSV colour maths, EventDraftCodec); tests in EventEditingTest
   ui/events/EventIcons.kt  fixed ~40-icon set mapped to Material Rounded vectors; draw() paints them onto a Canvas
 widget/
   Widgets.kt        DaymarkGlanceWidget base + Streak, Ring, Heatmap, Quote (shows reasons when not discreet), Actions (urge/journal/log), Stats; receivers
@@ -79,7 +81,7 @@ widget/
   WidgetArt.kt      bitmaps Glance can't draw: ring, heatmap, progress bar
   WidgetPreview.kt  Compose mirror of each widget (used by the style picker and in-app gallery)
   WidgetConfigActivity.kt  style + tracker picker (launcher "configure"), WidgetPinnedReceiver
-ui/events/   Events tab (5th bottom-bar tab): EventsScreen (filter/sort/size pills persisted in settings, LazyVerticalGrid of EventCard, long-press menu, speed-dial FAB, battery nag, empty state), EventEditorScreen(vm, eventId, kind, onClose) behind route `event?id=&kind=` (modal slide-up), EventCard/EventArt renderer. Pure list logic in domain/EventListLogic.kt (archived only under Archived; repeating/open-ended events are always ongoing). Notifications open an event via Routes.event(id) ("event:<id>").
+ui/events/   Events tab (5th bottom-bar tab): EventsScreen (filter/sort/size pills persisted in settings, LazyVerticalGrid of EventCard, long-press menu, speed-dial FAB, battery nag, empty state), EventEditorScreen(vm, eventId, kind, onClose, onDeleted) behind route `event?id=&kind=` (modal slide-up; full editor, see below), EventCard/EventArt renderer. Pure list logic in domain/EventListLogic.kt (archived only under Archived; repeating/open-ended events are always ongoing). Notifications open an event via Routes.event(id) ("event:<id>").
 debug/…/DemoSeedReceiver.kt   demo data, debug builds only
 ```
 

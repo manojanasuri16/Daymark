@@ -315,6 +315,12 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     eventId = entry.arguments?.getLong("id") ?: 0L,
                     kind = EventKind.entries.firstOrNull { it.id == kindId },
                     onClose = { nav.popBackStack() },
+                    onDeleted = { event ->
+                        scope.launch {
+                            val r = snackbar.showSnackbar("Event deleted", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                            if (r == SnackbarResult.ActionPerformed) vm.restoreEvent(event)
+                        }
+                    },
                 )
             }
             composable(Tab.SETTINGS.route) {
