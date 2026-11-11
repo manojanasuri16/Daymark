@@ -8,6 +8,10 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.daymark.app.domain.EventFilter
+import com.daymark.app.domain.EventSort
+import com.daymark.app.domain.ItemSize
+import com.daymark.app.domain.NotifType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -40,7 +44,37 @@ data class Settings(
     val autoBackupPassword: String = "",
     /** Include journal photos in exported and automatic backups (bigger files). */
     val backupPhotos: Boolean = true,
-)
+    // Events
+    /** The four calendar-period events have been added once. */
+    val eventsSeeded: Boolean = false,
+    val eventSort: EventSort = EventSort.CREATED,
+    val eventSortAsc: Boolean = false,
+    val eventFilter: EventFilter = EventFilter.ALL,
+    val eventCardSize: ItemSize = ItemSize.MEDIUM,
+    /** 15 or 30. */
+    val widgetRefreshMinutes: Int = 15,
+    /** Show a smaller unit when a single-unit amount is below 2. */
+    val precisionCountdown: Boolean = true,
+    val eventCompleted: Boolean = false,
+    val eventOneDayBefore: Boolean = false,
+    val eventOneWeekBefore: Boolean = false,
+    val eventEveryDayAfter: Boolean = false,
+    val eventEveryWeekAfter: Boolean = false,
+    val eventEveryMonthAfter: Boolean = false,
+    val eventEveryYearAfter: Boolean = false,
+    val batteryNagDismissed: Boolean = false,
+) {
+    /** Is the notification of this [type] switched on? */
+    fun notifies(type: NotifType): Boolean = when (type) {
+        NotifType.COMPLETED -> eventCompleted
+        NotifType.ONE_DAY_BEFORE -> eventOneDayBefore
+        NotifType.ONE_WEEK_BEFORE -> eventOneWeekBefore
+        NotifType.DAILY_AFTER -> eventEveryDayAfter
+        NotifType.WEEKLY_AFTER -> eventEveryWeekAfter
+        NotifType.MONTHLY_AFTER -> eventEveryMonthAfter
+        NotifType.YEARLY_AFTER -> eventEveryYearAfter
+    }
+}
 
 private val Context.dataStore by preferencesDataStore(name = "daymark_settings")
 
@@ -63,6 +97,31 @@ class SettingsRepository(private val context: Context) {
         val autoBackupUri = stringPreferencesKey("auto_backup_uri")
         val autoBackupPassword = stringPreferencesKey("auto_backup_password")
         val backupPhotos = booleanPreferencesKey("backup_photos")
+        val eventsSeeded = booleanPreferencesKey("events_seeded")
+        val eventSort = stringPreferencesKey("event_sort")
+        val eventSortAsc = booleanPreferencesKey("event_sort_asc")
+        val eventFilter = stringPreferencesKey("event_filter")
+        val eventCardSize = stringPreferencesKey("event_card_size")
+        val widgetRefreshMinutes = intPreferencesKey("widget_refresh_minutes")
+        val precisionCountdown = booleanPreferencesKey("precision_countdown")
+        val eventCompleted = booleanPreferencesKey("notif_event_completed")
+        val eventOneDayBefore = booleanPreferencesKey("notif_one_day_before")
+        val eventOneWeekBefore = booleanPreferencesKey("notif_one_week_before")
+        val eventEveryDayAfter = booleanPreferencesKey("notif_every_day_after")
+        val eventEveryWeekAfter = booleanPreferencesKey("notif_every_week_after")
+        val eventEveryMonthAfter = booleanPreferencesKey("notif_every_month_after")
+        val eventEveryYearAfter = booleanPreferencesKey("notif_every_year_after")
+        val batteryNagDismissed = booleanPreferencesKey("battery_nag_dismissed")
+
+        fun notif(type: NotifType) = when (type) {
+            NotifType.COMPLETED -> eventCompleted
+            NotifType.ONE_DAY_BEFORE -> eventOneDayBefore
+            NotifType.ONE_WEEK_BEFORE -> eventOneWeekBefore
+            NotifType.DAILY_AFTER -> eventEveryDayAfter
+            NotifType.WEEKLY_AFTER -> eventEveryWeekAfter
+            NotifType.MONTHLY_AFTER -> eventEveryMonthAfter
+            NotifType.YEARLY_AFTER -> eventEveryYearAfter
+        }
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }
@@ -87,6 +146,21 @@ class SettingsRepository(private val context: Context) {
         autoBackupUri = this[Keys.autoBackupUri] ?: "",
         autoBackupPassword = this[Keys.autoBackupPassword] ?: "",
         backupPhotos = this[Keys.backupPhotos] ?: true,
+        eventsSeeded = this[Keys.eventsSeeded] ?: false,
+        eventSort = this[Keys.eventSort]?.let { runCatching { EventSort.valueOf(it) }.getOrNull() } ?: EventSort.CREATED,
+        eventSortAsc = this[Keys.eventSortAsc] ?: false,
+        eventFilter = this[Keys.eventFilter]?.let { runCatching { EventFilter.valueOf(it) }.getOrNull() } ?: EventFilter.ALL,
+        eventCardSize = this[Keys.eventCardSize]?.let { runCatching { ItemSize.valueOf(it) }.getOrNull() } ?: ItemSize.MEDIUM,
+        widgetRefreshMinutes = (this[Keys.widgetRefreshMinutes] ?: 15).let { if (it == 30) 30 else 15 },
+        precisionCountdown = this[Keys.precisionCountdown] ?: true,
+        eventCompleted = this[Keys.eventCompleted] ?: false,
+        eventOneDayBefore = this[Keys.eventOneDayBefore] ?: false,
+        eventOneWeekBefore = this[Keys.eventOneWeekBefore] ?: false,
+        eventEveryDayAfter = this[Keys.eventEveryDayAfter] ?: false,
+        eventEveryWeekAfter = this[Keys.eventEveryWeekAfter] ?: false,
+        eventEveryMonthAfter = this[Keys.eventEveryMonthAfter] ?: false,
+        eventEveryYearAfter = this[Keys.eventEveryYearAfter] ?: false,
+        batteryNagDismissed = this[Keys.batteryNagDismissed] ?: false,
     )
 
     suspend fun completeOnboarding(firstHabitId: Long) = context.dataStore.edit {
@@ -116,6 +190,26 @@ class SettingsRepository(private val context: Context) {
         it[Keys.autoBackupPassword] = password
     }
 
+    /** Atomically claims the one-time seeding of the period events. True only for the caller that flipped the flag. */
+    suspend fun claimEventSeed(): Boolean {
+        var claimed = false
+        context.dataStore.edit {
+            if (it[Keys.eventsSeeded] != true) { it[Keys.eventsSeeded] = true; claimed = true }
+        }
+        return claimed
+    }
+
+    suspend fun setEventSort(sort: EventSort, asc: Boolean) = context.dataStore.edit {
+        it[Keys.eventSort] = sort.name
+        it[Keys.eventSortAsc] = asc
+    }
+    suspend fun setEventFilter(v: EventFilter) = context.dataStore.edit { it[Keys.eventFilter] = v.name }
+    suspend fun setEventCardSize(v: ItemSize) = context.dataStore.edit { it[Keys.eventCardSize] = v.name }
+    suspend fun setWidgetRefreshMinutes(v: Int) = context.dataStore.edit { it[Keys.widgetRefreshMinutes] = if (v >= 30) 30 else 15 }
+    suspend fun setPrecisionCountdown(v: Boolean) = context.dataStore.edit { it[Keys.precisionCountdown] = v }
+    suspend fun setEventNotification(type: NotifType, on: Boolean) = context.dataStore.edit { it[Keys.notif(type)] = on }
+    suspend fun setBatteryNagDismissed(v: Boolean) = context.dataStore.edit { it[Keys.batteryNagDismissed] = v }
+
     suspend fun replaceAll(s: Settings) = context.dataStore.edit {
         it[Keys.onboarded] = s.onboarded
         it[Keys.journeyStart] = s.journeyStart
@@ -134,6 +228,21 @@ class SettingsRepository(private val context: Context) {
         it[Keys.autoBackupUri] = s.autoBackupUri
         it[Keys.autoBackupPassword] = s.autoBackupPassword
         it[Keys.backupPhotos] = s.backupPhotos
+        it[Keys.eventsSeeded] = s.eventsSeeded
+        it[Keys.eventSort] = s.eventSort.name
+        it[Keys.eventSortAsc] = s.eventSortAsc
+        it[Keys.eventFilter] = s.eventFilter.name
+        it[Keys.eventCardSize] = s.eventCardSize.name
+        it[Keys.widgetRefreshMinutes] = s.widgetRefreshMinutes
+        it[Keys.precisionCountdown] = s.precisionCountdown
+        it[Keys.eventCompleted] = s.eventCompleted
+        it[Keys.eventOneDayBefore] = s.eventOneDayBefore
+        it[Keys.eventOneWeekBefore] = s.eventOneWeekBefore
+        it[Keys.eventEveryDayAfter] = s.eventEveryDayAfter
+        it[Keys.eventEveryWeekAfter] = s.eventEveryWeekAfter
+        it[Keys.eventEveryMonthAfter] = s.eventEveryMonthAfter
+        it[Keys.eventEveryYearAfter] = s.eventEveryYearAfter
+        it[Keys.batteryNagDismissed] = s.batteryNagDismissed
     }
 
     suspend fun clear() = context.dataStore.edit { it.clear() }

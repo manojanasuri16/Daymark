@@ -43,6 +43,9 @@ domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngin
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
   Build.kt          HabitKind, Schedule (weekday bitmask), ReminderConfig, BuildEngine (streak over scheduled days; rest days and a pending today never break it), BuildStats, Completion
   BuildInsights.kt  weekday stats / streak runs for build habits
+  Events.kt         EventKind (COUNTDOWN/SINCE/TIMER), EventRepeat, CountEvent, EventOptions (counting + style, ONE JSON column; `decode` never throws, unknown keys ignored), enums, EventSort/EventFilter/NotifType
+  EventEngine.kt    pure event maths (`now` + zone): cycle/cycleAt (repeats via java.time from the ORIGINAL date, so Jan 31 +1 month clamps without drifting; ON_COMPLETION restarts timers), progress, format (units, round up/down, 'smaller unit below 2' precision, accessories, percent), calendar-correct Y M D H min breakdown, nextEvent (queue), notificationTimes
+  EventTemplates.kt 8 wizard starters, ~60 ideas, EventDefaults (10 colour presets, 40-swatch palette, seeded Today/Week/Month/Year events)
   Options.kt        triggers, build presets, situations, moods, tracker emojis and suggestions
 data/
   Database.kt       Room v6: habits (kind, goal, schedule, reminder columns), relapses, urges, journal, journal_photos, completions (one row per habit per day), notes (`NoteEntity`, "Not a slip"); DAOs (incl. `NoteDao`); MIGRATION_1_2 … MIGRATION_5_6
@@ -58,7 +61,7 @@ notify/
 DaymarkApp.kt       AppContainer (manual DI), runs the legacy migration, refreshes widgets on data change
 ui/
   MainActivity.kt   FragmentActivity (needed by BiometricPrompt). Gate: LOCKED/ONBOARDING/LOADING/APP. NavHost + routes
-  MainViewModel.kt  single shared VM: settings, habits, selectedHabit, relapses (selected), stats (ticks 1s), overview, insights
+  MainViewModel.kt  single shared VM (`messages` = snackbar flow; `events` = all CountEvents; saveEvent/deleteEvent/restoreEvent/duplicateEvent/archiveEvent, seedEventsIfNeeded is idempotent via Settings.eventsSeeded): settings, habits, selectedHabit, relapses (selected), stats (ticks 1s), overview, insights
   theme/Theme.kt    Accent enum (8 accents, light+dark, hero gradient), neutral surfaces, DaymarkColors (clean/relapse/untracked)
   theme/Motion.kt   Apple-style springs: standard (no bounce), bouncy (only after gestures), press, gentle
   components/       DaymarkCard, pressScale, RollingNumber, ProgressRing, GrowingBar, Haptics…

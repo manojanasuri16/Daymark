@@ -69,6 +69,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         photos: List<JournalPhotoEntity> = emptyList(),
         completions: List<CompletionEntity> = emptyList(),
         notes: List<NoteEntity> = emptyList(),
+        events: List<EventEntity> = emptyList(),
     ) = db.withTransaction {
         clearAll()
         dao.insertAll(habits)
@@ -78,6 +79,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         db.journalPhotoDao().insertAll(photos)
         db.completionDao().insertAll(completions)
         db.noteDao().insertAll(notes)
+        db.eventDao().insertAll(events)
     }
 
     suspend fun clear() = db.withTransaction { clearAll() }
@@ -86,6 +88,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         db.relapseDao().clear()
         db.urgeDao().clear()
         db.noteDao().clear()
+        db.eventDao().clear()
         db.completionDao().clear()
         db.journalPhotoDao().clear()
         db.journalDao().clear()
@@ -170,5 +173,38 @@ class JournalRepository(private val db: DaymarkDatabase) {
     suspend fun delete(entry: JournalEntry) = db.withTransaction {
         photoDao.deleteForJournal(entry.id)
         dao.delete(JournalEntity.from(entry))
+    }
+}
+
+/** Countdowns, time-since events and timers. */
+class EventRepository(private val db: DaymarkDatabase) {
+    private val dao = db.eventDao()
+
+    val events: kotlinx.coroutines.flow.Flow<List<com.daymark.app.domain.CountEvent>> = dao.observeAll().map { l -> l.map { it.toEvent() } }
+
+    suspend fun all(): List<com.daymark.app.domain.CountEvent> = dao.getAll().map { it.toEvent() }
+    suspend fun allEntities(): List<EventEntity> = dao.getAll()
+    suspend fun get(id: Long): com.daymark.app.domain.CountEvent? = dao.get(id)?.toEvent()
+
+    /** Inserts (id 0) or updates; stamps modifiedAt (and createdAt for new rows). Returns the id. */
+    suspend fun save(event: com.daymark.app.domain.CountEvent, now: Long = System.currentTimeMillis()): Long =
+        if (event.id == 0L) dao.insert(EventEntity.from(event.copy(createdAt = if (event.createdAt > 0) event.createdAt else now, modifiedAt = now)))
+        else { dao.insert(EventEntity.from(event.copy(modifiedAt = now))); event.id }
+
+    suspend fun insertAll(list: List<com.daymark.app.domain.CountEvent>) = dao.insertAll(list.map { EventEntity.from(it) })
+
+    /** Puts a deleted event back exactly as it was (same id, same timestamps). */
+    suspend fun restore(event: com.daymark.app.domain.CountEvent) { dao.insert(EventEntity.from(event)) }
+
+    suspend fun delete(id: Long) = dao.delete(id)
+
+    suspend fun setArchived(id: Long, archived: Boolean, now: Long = System.currentTimeMillis()) {
+        val e = dao.get(id) ?: return
+        dao.update(e.copy(archived = archived, modifiedAt = now))
+    }
+
+    suspend fun duplicate(id: Long, now: Long = System.currentTimeMillis()): Long? {
+        val e = dao.get(id) ?: return null
+        return dao.insert(e.copy(id = 0, name = e.name + " (copy)", archived = false, createdAt = now, modifiedAt = now))
     }
 }

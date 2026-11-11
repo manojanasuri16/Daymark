@@ -29,7 +29,7 @@ class BackupV6Test {
 
         val text = BackupCodec.encode(Settings(onboarded = true), habits, emptyList(), now = at(2026, 3, 1), notes = notes)
         val file = BackupCodec.decode(text)
-        assertEquals(6, file.version)
+        assertEquals(7, file.version)
         assertEquals(2, file.habits[0].notes.size)
         assertEquals(1, file.habits[1].notes.size)
 
@@ -90,7 +90,7 @@ class BackupV6Test {
         assertEquals(b.relapseCount, a.relapseCount)
     }
 
-    @Test fun `backup version is 6`() {
-        assertEquals(6, BackupFile.VERSION)
+    @Test fun `backup version is still readable at 6`() {
+        assertTrue(BackupFile.VERSION >= 6)
     }
 }

@@ -16,7 +16,11 @@ import androidx.room.RoomDatabase
 import androidx.room.Update
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.daymark.app.domain.CountEvent
 import com.daymark.app.domain.Completion
+import com.daymark.app.domain.EventKind
+import com.daymark.app.domain.EventOptions
+import com.daymark.app.domain.EventRepeat
 import com.daymark.app.domain.Habit
 import com.daymark.app.domain.HabitKind
 import com.daymark.app.domain.ReminderConfig
@@ -448,9 +452,80 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/** A countdown, time-since or timer event. Independent of habits. Style and counting options live in one JSON column. */
+@Entity(tableName = "events")
+data class EventEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val kind: Int,
+    val startAt: Long,
+    val endAt: Long?,
+    val allDay: Boolean,
+    val repeat: Int,
+    val countUp: Boolean,
+    val notes: String,
+    val archived: Boolean,
+    val createdAt: Long,
+    val modifiedAt: Long,
+    @ColumnInfo(defaultValue = "'{}'") val options: String = "{}",
+) {
+    fun toEvent() = CountEvent(
+        id = id, name = name, kind = EventKind.of(kind), startAt = startAt, endAt = endAt, allDay = allDay,
+        repeat = EventRepeat.of(repeat), countUp = countUp, notes = notes, archived = archived,
+        createdAt = createdAt, modifiedAt = modifiedAt, options = EventOptions.decode(options),
+    )
+
+    companion object {
+        fun from(e: CountEvent) = EventEntity(
+            id = e.id, name = e.name, kind = e.kind.id, startAt = e.startAt, endAt = e.endAt, allDay = e.allDay,
+            repeat = e.repeat.id, countUp = e.countUp, notes = e.notes, archived = e.archived,
+            createdAt = e.createdAt, modifiedAt = e.modifiedAt, options = e.options.encode(),
+        )
+    }
+}
+
+@Dao
+interface EventDao {
+    @Query("SELECT * FROM events ORDER BY id ASC")
+    fun observeAll(): Flow<List<EventEntity>>
+
+    @Query("SELECT * FROM events ORDER BY id ASC")
+    suspend fun getAll(): List<EventEntity>
+
+    @Query("SELECT * FROM events WHERE id = :id")
+    suspend fun get(id: Long): EventEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: EventEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<EventEntity>)
+
+    @Update
+    suspend fun update(entity: EventEntity)
+
+    @Query("DELETE FROM events WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM events")
+    suspend fun clear()
+}
+
+/** v6 → v7: events (countdowns, time since, timers). */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`kind` INTEGER NOT NULL, `startAt` INTEGER NOT NULL, `endAt` INTEGER, `allDay` INTEGER NOT NULL, " +
+                "`repeat` INTEGER NOT NULL, `countUp` INTEGER NOT NULL, `notes` TEXT NOT NULL, `archived` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `modifiedAt` INTEGER NOT NULL, `options` TEXT NOT NULL DEFAULT '{}')",
+        )
+    }
+}
+
 @Database(
-    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class, CompletionEntity::class, NoteEntity::class],
-    version = 6,
+    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class, CompletionEntity::class, NoteEntity::class, EventEntity::class],
+    version = 7,
     exportSchema = true,
 )
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -461,9 +536,10 @@ abstract class DaymarkDatabase : RoomDatabase() {
     abstract fun journalPhotoDao(): JournalPhotoDao
     abstract fun completionDao(): CompletionDao
     abstract fun noteDao(): NoteDao
+    abstract fun eventDao(): EventDao
 
     companion object {
         fun build(context: Context): DaymarkDatabase =
-            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
+            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
     }
 }

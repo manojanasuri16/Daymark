@@ -26,6 +26,7 @@ object BackupWriter {
             journalPhotos = photos,
             completions = c.completions.allEntities(),
             notes = c.notes.allEntities(),
+            events = c.events.allEntities(),
         )
         return if (password.isBlank()) plain else BackupCrypto.encrypt(plain, password)
     }

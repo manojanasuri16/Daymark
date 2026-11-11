@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.daymark.app.data.DaymarkDatabase
 import com.daymark.app.data.CompletionRepository
+import com.daymark.app.data.EventRepository
 import com.daymark.app.data.HabitRepository
 import com.daymark.app.data.JournalRepository
 import com.daymark.app.data.RelapseRepository
@@ -27,6 +28,7 @@ class AppContainer(val context: Context) {
     val urges = UrgeRepository(database)
     val notes = NoteRepository(database)
     val completions = CompletionRepository(database)
+    val events = EventRepository(database)
     val journal = JournalRepository(database)
     val settings = SettingsRepository(context)
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

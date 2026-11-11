@@ -197,7 +197,7 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
     val route = backStack?.destination?.route
     val isTab = Tab.entries.any { it.route == route }
 
-    LaunchedEffect(Unit) { vm.events.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
 
     LaunchedEffect(pendingRoute) {
         val target = when (pendingRoute) {

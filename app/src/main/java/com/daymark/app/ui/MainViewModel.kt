@@ -14,6 +14,11 @@ import com.daymark.app.data.ThemeMode
 import com.daymark.app.domain.BuildEngine
 import com.daymark.app.domain.BuildStats
 import com.daymark.app.domain.Completion
+import com.daymark.app.domain.CountEvent
+import com.daymark.app.domain.NotifType
+import com.daymark.app.domain.EventFilter
+import com.daymark.app.domain.EventSort
+import com.daymark.app.domain.ItemSize
 import com.daymark.app.domain.Habit
 import com.daymark.app.domain.InsightsData
 import com.daymark.app.domain.InsightsEngine
@@ -94,6 +99,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (h == null) emptyList() else j.filter { it.habitId == h.id }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Every event (countdowns, time since, timers), including archived ones. */
+    val events: StateFlow<List<CountEvent>> = c.events.events
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** Wall clock that ticks on the second boundary so live counters stay in step. */
     val now: StateFlow<Long> = flow {
         while (true) {
@@ -153,7 +162,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 4)
     /** One-off user-facing messages (snackbars). */
-    val events: SharedFlow<String> = _events
+    val messages: SharedFlow<String> = _events
 
     private val _pendingEncryptedImport = MutableStateFlow<Uri?>(null)
     /** A chosen backup file that needs a password before it can be restored. */
@@ -209,6 +218,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         c.completions.set(habit.id, date.toEpochDay(), if (done) 0.0 else BuildEngine.effectiveTarget(habit.goalTarget))
         com.daymark.app.notify.HabitReminders.rescheduleAll(getApplication())
     }
+
+    // Events
+    /** Creates or updates an event. */
+    fun saveEvent(event: CountEvent) = viewModelScope.launch { c.events.save(event) }
+    fun deleteEvent(event: CountEvent) = viewModelScope.launch { c.events.delete(event.id) }
+    /** Undo of [deleteEvent]. */
+    fun restoreEvent(event: CountEvent) = viewModelScope.launch { c.events.restore(event) }
+    fun duplicateEvent(event: CountEvent) = viewModelScope.launch { c.events.duplicate(event.id) }
+    fun archiveEvent(id: Long, archived: Boolean) = viewModelScope.launch { c.events.setArchived(id, archived) }
+
+    /** Adds Today / This week / This month / This year once (safe to call every time the Events tab opens). */
+    fun seedEventsIfNeeded() = viewModelScope.launch {
+        if (!c.settings.claimEventSeed()) return@launch
+        val first = java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek
+        c.events.insertAll(com.daymark.app.domain.EventDefaults.periodEvents(System.currentTimeMillis(), java.time.ZoneId.systemDefault(), first))
+    }
+
+    fun setEventSort(sort: EventSort, asc: Boolean) = viewModelScope.launch { c.settings.setEventSort(sort, asc) }
+    fun setEventFilter(v: EventFilter) = viewModelScope.launch { c.settings.setEventFilter(v) }
+    fun setEventCardSize(v: ItemSize) = viewModelScope.launch { c.settings.setEventCardSize(v) }
+    fun setWidgetRefreshMinutes(v: Int) = viewModelScope.launch { c.settings.setWidgetRefreshMinutes(v) }
+    fun setPrecisionCountdown(v: Boolean) = viewModelScope.launch { c.settings.setPrecisionCountdown(v) }
+    fun setEventNotification(type: NotifType, on: Boolean) = viewModelScope.launch { c.settings.setEventNotification(type, on) }
+    fun setBatteryNagDismissed(v: Boolean) = viewModelScope.launch { c.settings.setBatteryNagDismissed(v) }
 
     fun saveRelapse(record: RelapseRecord) = viewModelScope.launch { c.relapses.save(record) }
 
@@ -306,7 +339,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     data.mapNotNull { com.daymark.app.data.PhotoStore.fromBase64(app, it) }
                         .mapIndexed { i, name -> com.daymark.app.data.JournalPhotoEntity(journalId = journalId, fileName = name, sortOrder = i) }
                 }
-                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows, e.completions, e.notes)
+                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows, e.completions, e.notes, e.events)
                 // Old photos aren't referenced any more.
                 com.daymark.app.data.PhotoStore.sweep(app, photoRows.map { it.fileName }.toSet(), now = Long.MAX_VALUE)
                 val current = c.settings.current()
@@ -316,6 +349,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         selectedHabitId = habits.first().id,
                         themeMode = file.themeMode,
                         accent = file.accent ?: current.accent,
+                        // Older backups carry no events: let the period events be added again.
+                        eventsSeeded = file.version >= 7,
                     ),
                 )
                 habits.size to relapses.size

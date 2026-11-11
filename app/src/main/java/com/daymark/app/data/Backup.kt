@@ -1,5 +1,8 @@
 package com.daymark.app.data
 
+import com.daymark.app.domain.EventKind
+import com.daymark.app.domain.EventOptions
+import com.daymark.app.domain.EventRepeat
 import com.daymark.app.domain.HabitKind
 import com.daymark.app.domain.ReminderConfig
 import com.daymark.app.domain.ReminderMode
@@ -27,6 +30,23 @@ data class BackupUrge(
 /** v6: a "Not a slip" note. */
 @Serializable
 data class BackupNote(val timestamp: Long, val notes: String = "")
+
+/** v7: an event (countdown / time since / timer). [options] is the event's JSON options text. */
+@Serializable
+data class BackupEvent(
+    val name: String,
+    val kind: Int = 0,
+    val startAt: Long,
+    val endAt: Long? = null,
+    val allDay: Boolean = true,
+    val repeat: Int = 0,
+    val countUp: Boolean = false,
+    val notes: String = "",
+    val archived: Boolean = false,
+    val createdAt: Long = 0,
+    val modifiedAt: Long = 0,
+    val options: String = "{}",
+)
 
 @Serializable
 data class BackupJournal(
@@ -76,7 +96,7 @@ data class BackupHabit(
 data class BackupCompletion(val epochDay: Long, val amount: Double)
 
 /**
- * v6: "Not a slip" notes per tracker (never counted in streaks).
+ * v7: events (top-level `events`). v6: "Not a slip" notes per tracker (never counted in streaks).
  * v5: "build a habit": kind, daily goal, weekly schedule, reminders and daily completions per tracker.
  * v4: journal photos (base64 JPEG inside each journal entry).
  * v3: money, "cut down" limit, reasons, urges and journal per tracker. v2: multiple trackers (`habits`).
@@ -91,6 +111,8 @@ data class BackupFile(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: String? = null,
     val habits: List<BackupHabit> = emptyList(),
+    // v7
+    val events: List<BackupEvent> = emptyList(),
     // v1 fields
     val habitName: String? = null,
     val journeyStart: Long? = null,
@@ -98,7 +120,7 @@ data class BackupFile(
 ) {
     companion object {
         const val APP_ID = "daymark"
-        const val VERSION = 6
+        const val VERSION = 7
     }
 }
 
@@ -123,12 +145,16 @@ object BackupCodec {
         journalPhotos: Map<Long, List<String>> = emptyMap(),
         completions: List<CompletionEntity> = emptyList(),
         notes: List<NoteEntity> = emptyList(),
+        events: List<EventEntity> = emptyList(),
     ): String = json.encodeToString(
         BackupFile.serializer(),
         BackupFile(
             exportedAt = now,
             themeMode = settings.themeMode,
             accent = settings.accent,
+            events = events.map {
+                BackupEvent(it.name, it.kind, it.startAt, it.endAt, it.allDay, it.repeat, it.countUp, it.notes, it.archived, it.createdAt, it.modifiedAt, it.options)
+            },
             habits = habits.map { h ->
                 val habit = h.toHabit()
                 BackupHabit(
@@ -189,6 +215,7 @@ object BackupCodec {
         val journalPhotos: Map<Long, List<String>> = emptyMap(),
         val completions: List<CompletionEntity> = emptyList(),
         val notes: List<NoteEntity> = emptyList(),
+        val events: List<EventEntity> = emptyList(),
     )
 
     /** Assigns fresh ids 1..n so entries can reference their habit. */
@@ -251,7 +278,15 @@ object BackupCodec {
         val notes = file.habits.flatMapIndexed { i, h ->
             h.notes.map { NoteEntity(habitId = i + 1L, timestamp = it.timestamp, notes = it.notes) }
         }
-        return Entities(habits, relapses, urges, journal, photos, completions, notes)
+        val events = file.events.mapIndexed { i, ev ->
+            EventEntity(
+                id = i + 1L, name = ev.name, kind = EventKind.of(ev.kind).id, startAt = ev.startAt, endAt = ev.endAt,
+                allDay = ev.allDay, repeat = EventRepeat.of(ev.repeat).id, countUp = ev.countUp, notes = ev.notes,
+                archived = ev.archived, createdAt = ev.createdAt, modifiedAt = ev.modifiedAt,
+                options = EventOptions.decode(ev.options).encode(),
+            )
+        }
+        return Entities(habits, relapses, urges, journal, photos, completions, notes, events)
     }
 }
 

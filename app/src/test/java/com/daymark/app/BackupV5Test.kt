@@ -130,6 +130,6 @@ class BackupV5Test {
 
     @Test(expected = InvalidBackupException::class)
     fun `backup newer than v5 is rejected`() {
-        BackupCodec.decode("""{"app":"daymark","version":7,"exportedAt":1,"habits":[{"name":"A","startAt":${at(2026, 1, 1)}}]}""")
+        BackupCodec.decode("""{"app":"daymark","version":8,"exportedAt":1,"habits":[{"name":"A","startAt":${at(2026, 1, 1)}}]}""")
     }
 }
