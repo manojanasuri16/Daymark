@@ -33,6 +33,10 @@ object Routes {
     const val URGE = "urge"
     const val SLIP = "slip"
     const val JOURNAL = "journal"
+    /** Opens an event: `event:<id>`. */
+    const val EVENT = "event"
+    const val EVENT_PREFIX = "event:"
+    fun event(id: Long) = "$EVENT_PREFIX$id"
 
     fun intent(context: Context, route: String): Intent =
         Intent(context, MainActivity::class.java)

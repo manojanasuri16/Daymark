@@ -79,6 +79,7 @@ widget/
   WidgetArt.kt      bitmaps Glance can't draw: ring, heatmap, progress bar
   WidgetPreview.kt  Compose mirror of each widget (used by the style picker and in-app gallery)
   WidgetConfigActivity.kt  style + tracker picker (launcher "configure"), WidgetPinnedReceiver
+ui/events/   Events tab (5th bottom-bar tab): EventsScreen (filter/sort/size pills persisted in settings, LazyVerticalGrid of EventCard, long-press menu, speed-dial FAB, battery nag, empty state), EventEditorScreen(vm, eventId, kind, onClose) behind route `event?id=&kind=` (modal slide-up), EventCard/EventArt renderer. Pure list logic in domain/EventListLogic.kt (archived only under Archived; repeating/open-ended events are always ongoing). Notifications open an event via Routes.event(id) ("event:<id>").
 debug/…/DemoSeedReceiver.kt   demo data, debug builds only
 ```
 

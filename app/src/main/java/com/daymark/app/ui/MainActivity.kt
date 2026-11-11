@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WbSunny
@@ -63,6 +64,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.daymark.app.data.Settings
+import com.daymark.app.domain.EventKind
+import com.daymark.app.ui.events.EventEditorScreen
+import com.daymark.app.ui.events.EventsScreen
 import com.daymark.app.ui.calendar.CalendarScreen
 import com.daymark.app.ui.components.LocalHapticsEnabled
 import com.daymark.app.ui.dashboard.DashboardScreen
@@ -168,11 +172,15 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     TODAY("today", "Today", Icons.Rounded.WbSunny),
     CALENDAR("calendar", "Calendar", Icons.Rounded.CalendarMonth),
     INSIGHTS("insights", "Insights", Icons.Rounded.Insights),
+    EVENTS("events", "Events", Icons.Rounded.HourglassTop),
     SETTINGS("settings", "Settings", Icons.Rounded.Settings),
 }
 
 private const val HABIT_ROUTE = "habit?id={id}"
 private fun habitRoute(id: Long = 0) = "habit?id=$id"
+
+private const val EVENT_ROUTE = "event?id={id}&kind={kind}"
+private fun eventRoute(id: Long = 0, kind: EventKind? = null) = "event?id=$id&kind=${kind?.id ?: -1}"
 
 private const val LOG_ROUTE = "log?id={id}&day={day}&note={note}"
 private fun logRoute(id: Long = 0, day: Long? = null, note: Long = 0) = "log?id=$id&day=${day ?: Long.MIN_VALUE}&note=$note"
@@ -200,7 +208,9 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
 
     LaunchedEffect(pendingRoute) {
-        val target = when (pendingRoute) {
+        val eventId = pendingRoute?.removePrefix(com.daymark.app.notify.Routes.EVENT_PREFIX)?.toLongOrNull()
+            ?.takeIf { pendingRoute.startsWith(com.daymark.app.notify.Routes.EVENT_PREFIX) }
+        val target = if (eventId != null) eventRoute(eventId) else when (pendingRoute) {
             com.daymark.app.notify.Routes.URGE -> urgeRoute()
             com.daymark.app.notify.Routes.JOURNAL -> journalRoute()
             com.daymark.app.notify.Routes.SLIP -> logRoute()
@@ -273,6 +283,40 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                 )
             }
             composable(Tab.INSIGHTS.route) { InsightsScreen(vm, padding) }
+            composable(Tab.EVENTS.route) {
+                EventsScreen(
+                    vm, padding, settings,
+                    onOpenEvent = { nav.navigate(eventRoute(it.id)) },
+                    onNewEvent = { nav.navigate(eventRoute(kind = it)) },
+                    onGiveIdeas = { nav.navigate(eventRoute(kind = EventKind.COUNTDOWN)) },
+                    onOpenSettings = { selectTab(Tab.SETTINGS) },
+                    onDeleted = { event ->
+                        scope.launch {
+                            val r = snackbar.showSnackbar("Event deleted", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                            if (r == SnackbarResult.ActionPerformed) vm.restoreEvent(event)
+                        }
+                    },
+                )
+            }
+            composable(
+                EVENT_ROUTE,
+                arguments = listOf(
+                    navArgument("id") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("kind") { type = NavType.IntType; defaultValue = -1 },
+                ),
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                val kindId = entry.arguments?.getInt("kind") ?: -1
+                EventEditorScreen(
+                    vm = vm,
+                    eventId = entry.arguments?.getLong("id") ?: 0L,
+                    kind = EventKind.entries.firstOrNull { it.id == kindId },
+                    onClose = { nav.popBackStack() },
+                )
+            }
             composable(Tab.SETTINGS.route) {
                 SettingsScreen(
                     vm, padding,
