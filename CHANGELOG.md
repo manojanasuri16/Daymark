@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1 — 2026-11-11 (versionCode 11)
+
+• Add any event to your home screen straight from the app: long-press an event card, use the editor menu, or tap "Add to home screen" when you create one
+• "Add a widget" on the Events screen shows your next event automatically
+• Freshly placed Event widgets now show up right away
+
+
 ## 1.6.0 — 2026-11-11 (versionCode 10)
 
 • Events: count down to dates, count time since, or run timers, with built-in Today / Week / Month / Year progress

@@ -1,0 +1,4 @@
+New in 1.6.1:
+• Add any event to your home screen straight from the app: long-press an event card, use the editor menu, or tap "Add to home screen" when you create one
+• "Add a widget" on the Events screen shows your next event automatically
+• Freshly placed Event widgets now show up right away
