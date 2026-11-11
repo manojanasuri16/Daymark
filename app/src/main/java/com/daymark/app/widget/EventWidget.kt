@@ -19,6 +19,7 @@ import androidx.glance.LocalContext
 import androidx.glance.LocalGlanceId
 import androidx.glance.LocalSize
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
@@ -79,6 +80,10 @@ internal suspend fun DaymarkGlanceWidget.provideEventContent(app: Context, id: G
     val s0 = withContext(Dispatchers.IO) { app.container.settings.current() }
     val appWidgetId = runCatching { GlanceAppWidgetManager(app).getAppWidgetId(id) }.getOrDefault(AppWidgetManager.INVALID_APPWIDGET_ID)
     val breakpoints = sizes.map { artSize(it).let { (w, h) -> w.value * h.value } }
+    // Create this widget's state file before the first render, as the other kinds do (they write their style here).
+    // Without it the very first read of a freshly pinned widget hit a missing file and some launchers showed
+    // "Can't show content" until they were restarted.
+    runCatching { updateAppWidgetState(app, id) { if (it[RefreshKey] == null) it[RefreshKey] = System.currentTimeMillis() } }
     provideContent {
         val context = LocalContext.current
         val events by app.container.events.events.collectAsState(e0)
