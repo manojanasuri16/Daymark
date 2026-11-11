@@ -2,6 +2,9 @@ Daymark is a calm, private habit app for building good habits, breaking unwanted
 
 Everything stays on your phone. No account, no ads, no analytics and no internet permission.
 
+## What's new in 1.7
+- **Long-press to add a widget:** press and hold a tracker's circle (or its chip) to preview the widgets for that tracker, pick a style and add it to your home screen in one step. The widget stays on that tracker, even when you switch trackers in the app
+
 ## What's new in 1.6
 - **Events:** countdowns, time since and timers, with built-in Today, This week, This month and This year progress cards
 - **Not a slip:** save an involuntary or not-a-slip moment as a private note that never touches your streak
@@ -47,6 +50,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 - Streak, Progress ring, Heatmap, Daily motivation, Quick actions and Your progress
 - An Event widget with three backgrounds (full, translucent, transparent), or an upcoming queue that shows your next event
 - Add any event to your home screen from inside the app
+- Long-press any tracker to add its widget straight from the app, already set to that tracker
 - Six styles: Dusk, Dawn, Forest, Midnight, Sunrise and Minimal. Each widget can show the tracker you choose
 
 ## Private by design
