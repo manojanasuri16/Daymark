@@ -17,8 +17,9 @@
     "appdrop/screenshots/v17_4_journal.png",
     "appdrop/screenshots/v17_5_event.png",
     "appdrop/screenshots/v17_6_widgets.png",
-    "appdrop/screenshots/v17_7_insights.png",
-    "appdrop/screenshots/v17_8_dark.png"
+    "appdrop/screenshots/v17_7_calendar.png",
+    "appdrop/screenshots/v17_8_insights.png",
+    "appdrop/screenshots/v17_9_dark.png"
   ],
   "descriptionFile": "appdrop/description.md",
   "assetPattern": "Daymark-*.apk"
