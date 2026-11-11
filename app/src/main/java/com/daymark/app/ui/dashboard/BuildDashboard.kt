@@ -83,6 +83,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.roundToInt
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 
 private val BuildHeroNumber = TextStyle(fontSize = 64.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.03).sp, lineHeight = 66.sp)
 
@@ -100,6 +102,8 @@ fun LazyListScope.buildDashboardItems(
     onOpenCalendar: () -> Unit,
     onOpenHistory: () -> Unit,
     onShare: (Milestone) -> Unit,
+    showTip: Boolean = false,
+    onAddToHome: () -> Unit = {},
 ) {
     val builders = overview.filter { it.build != null }
     if (builders.size >= 2) {
@@ -113,6 +117,8 @@ fun LazyListScope.buildDashboardItems(
             onAdd = { vm.logProgress(habit, it) },
             onSetAmount = { vm.setProgress(habit, it) },
             onToggle = { vm.toggleDone(habit) },
+            showTip = showTip,
+            onAddToHome = onAddToHome,
         )
     }
     item("bCelebrate") { MilestoneBanner(stats, onShare) }
@@ -215,6 +221,7 @@ fun LazyListScope.buildDashboardItems(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BuildHero(
     habit: Habit,
@@ -223,6 +230,8 @@ private fun BuildHero(
     onAdd: (Double) -> Unit,
     onSetAmount: (Double) -> Unit,
     onToggle: () -> Unit,
+    showTip: Boolean,
+    onAddToHome: () -> Unit,
 ) {
     val colors = DaymarkTheme.colors
     val haptics = rememberHaptics()
@@ -247,11 +256,21 @@ private fun BuildHero(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             val ringMod = Modifier.size(224.dp).semantics { contentDescription = summary }
+            val ringSrc = remember { MutableInteractionSource() }
+            val canToggle = !hasGoal && !restDay
             Box(
-                if (!hasGoal && !restDay) ringMod.clip(CircleShape).clickable {
-                    if (b.todayDone) haptics.tick() else haptics.confirm()
-                    onToggle()
-                } else ringMod,
+                ringMod.pressScale(ringSrc, 0.98f).clip(CircleShape).combinedClickable(
+                    interactionSource = ringSrc, indication = null,
+                    enabled = true,
+                    onClick = {
+                        if (canToggle) {
+                            if (b.todayDone) haptics.tick() else haptics.confirm()
+                            onToggle()
+                        }
+                    },
+                    onLongClickLabel = "Add to home screen",
+                    onLongClick = { haptics.heavy(); onAddToHome() },
+                ),
                 contentAlignment = Alignment.Center,
             ) {
                 ProgressRing(
@@ -277,6 +296,7 @@ private fun BuildHero(
                     )
                 }
             }
+            HomeTip(showTip)
             Spacer(Modifier.height(16.dp))
             AnimatedText(stateLine, MaterialTheme.typography.titleMedium, color = Color.White)
             Spacer(Modifier.height(16.dp))

@@ -194,6 +194,9 @@ class WidgetPinnedReceiver : BroadcastReceiver() {
                 val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(id)
                 updateAppWidgetState(context, glanceId) { prefs: androidx.datastore.preferences.core.MutablePreferences -> prefs[StyleKey] = style; if (habitId != 0L) prefs[HabitKey] = habitId }
                 kind.widget().update(context, glanceId)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(context.applicationContext, EventWidgetPinner.MSG_ADDED, android.widget.Toast.LENGTH_SHORT).show()
+                }
             } finally { pending.finish() }
         }
     }

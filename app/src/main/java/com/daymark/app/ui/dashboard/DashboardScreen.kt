@@ -93,6 +93,16 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Widgets
+import com.daymark.app.ui.widgets.AddToHomeSheet
+import com.daymark.app.widget.EventWidgetPinner
+import com.daymark.app.widget.HomeWidgetPinner
+import com.daymark.app.widget.WidgetOffer
+import com.daymark.app.widget.WidgetSnapshot
+import kotlinx.coroutines.delay
 
 @Composable
 fun DashboardScreen(
@@ -113,6 +123,9 @@ fun DashboardScreen(
     val urges by vm.urges.collectAsStateWithLifecycle()
     val entries by vm.relapses.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val allRelapses by vm.allRelapses.collectAsStateWithLifecycle()
+    val allUrges by vm.allUrges.collectAsStateWithLifecycle()
+    val allCompletions by vm.allCompletions.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     val habit = selected?.name.orEmpty()
     val isBuild = selected?.isBuild == true
@@ -125,6 +138,36 @@ fun DashboardScreen(
         if (i >= 0) chipsState.animateScrollToItem(if (i == 0) 0 else i - 1)
     }
     val today = remember(now / 3_600_000) { LocalDate.now() }
+
+    // "Add to home screen": long-press a tracker's circle or chip (or use the header button).
+    var sheetHabitId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val tipViews = settings?.homeTipViews
+    LaunchedEffect(tipViews != null) {
+        tipViews?.let { v -> if (v >= 0 && WidgetOffer.nextTipViews(v) != v) vm.setHomeTipViews(WidgetOffer.nextTipViews(v)) }
+    }
+    val showTip = tipViews != null && WidgetOffer.shouldShowTip(tipViews) && sheetHabitId == null
+    LaunchedEffect(showTip) {
+        if (showTip) { delay(6_000); vm.setHomeTipViews(WidgetOffer.TIP_DONE) }
+    }
+    fun openAddToHome(id: Long) {
+        if (tipViews != null && tipViews >= 0) vm.setHomeTipViews(WidgetOffer.TIP_DONE)
+        sheetHabitId = id
+    }
+    val sheetHabit = overview.firstOrNull { it.habit.id == sheetHabitId }?.habit
+    if (sheetHabit != null) {
+        val discreet = settings?.discreet ?: true
+        val snap = remember(sheetHabit, allRelapses, allUrges, allCompletions, discreet) {
+            WidgetSnapshot.from(sheetHabit, allRelapses, urges = allUrges, discreet = discreet, completions = allCompletions)
+        }
+        AddToHomeSheet(
+            habit = sheetHabit, snapshot = snap,
+            onDismiss = { sheetHabitId = null },
+            onPin = { kind, style ->
+                sheetHabitId = null
+                EventWidgetPinner.message(HomeWidgetPinner.pin(context, kind, style, sheetHabit.id))?.let(vm::say)
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -154,6 +197,9 @@ fun DashboardScreen(
                     )
                 }
                 selected?.let { h ->
+                    IconButton(onClick = { haptics.tick(); openAddToHome(h.id) }) {
+                        Icon(Icons.Rounded.Widgets, "Add to home screen", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     IconButton(onClick = { onEditHabit(h) }) {
                         Icon(Icons.Rounded.Tune, "Edit tracker", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -170,6 +216,7 @@ fun DashboardScreen(
                         build = summary.build,
                         selected = summary.habit.id == selected?.id,
                         onClick = { haptics.tick(); vm.selectHabit(summary.habit.id) },
+                        onLongClick = { openAddToHome(summary.habit.id) },
                     )
                 }
                 item("add") { AddTrackerChip(compact = overview.size > 1, onClick = onAddHabit) }
@@ -181,6 +228,7 @@ fun DashboardScreen(
             buildDashboardItems(
                 vm = vm, habit = sel, build = buildNow, stats = stats, overview = overview, today = today,
                 onJournal = onJournal, onOpenCalendar = onOpenCalendar, onOpenHistory = onLogSlip,
+                showTip = showTip, onAddToHome = { openAddToHome(sel.id) },
                 onShare = { m ->
                     settings?.let { st ->
                         val label = if (st.discreet) null else sel.displayName
@@ -192,7 +240,7 @@ fun DashboardScreen(
                 },
             )
         } else if (!isBuild) {
-        item("hero") { HeroCard(stats) }
+        item("hero") { HeroCard(stats, showTip) { selected?.let { openAddToHome(it.id) } } }
         if (reduce) {
             item("today") {
                 val zone = ZoneId.systemDefault()
@@ -316,8 +364,11 @@ fun DashboardScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HeroCard(stats: StreakStats) {
+private fun HeroCard(stats: StreakStats, showTip: Boolean, onAddToHome: () -> Unit) {
+    val haptics = rememberHaptics()
+    val ringSrc = remember { MutableInteractionSource() }
     val colors = DaymarkTheme.colors
     val remainder = stats.currentMillis % StreakStats.DAY_MS
     val h = remainder / 3_600_000
@@ -333,7 +384,14 @@ private fun HeroCard(stats: StreakStats) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(248.dp), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(248.dp).pressScale(ringSrc, 0.98f).clip(CircleShape).combinedClickable(
+                    interactionSource = ringSrc, indication = null,
+                    onClick = {}, onLongClickLabel = "Add to home screen",
+                    onLongClick = { haptics.heavy(); onAddToHome() },
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
                 ProgressRing(
                     progress = Milestones.progress(stats.currentMillis),
                     modifier = Modifier.fillMaxSize(),
@@ -358,6 +416,7 @@ private fun HeroCard(stats: StreakStats) {
                     )
                 }
             }
+            HomeTip(showTip)
             Spacer(Modifier.height(16.dp))
             Text(
                 if (next == null) "Every milestone reached. Extraordinary."
@@ -498,8 +557,9 @@ private fun Badge(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TrackerChip(emoji: String, label: String, days: Long, build: com.daymark.app.domain.BuildStats?, selected: Boolean, onClick: () -> Unit) {
+private fun TrackerChip(emoji: String, label: String, days: Long, build: com.daymark.app.domain.BuildStats?, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val bg by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
@@ -509,7 +569,10 @@ private fun TrackerChip(emoji: String, label: String, days: Long, build: com.day
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = bg,
-        modifier = Modifier.pressScale(src, 0.95f).clickable(src, null, onClick = onClick),
+        modifier = Modifier.pressScale(src, 0.95f).clip(RoundedCornerShape(16.dp)).combinedClickable(
+            interactionSource = src, indication = null, onClick = onClick,
+            onLongClickLabel = "Add to home screen", onLongClick = onLongClick,
+        ),
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(emoji, fontSize = 18.sp)
@@ -657,6 +720,26 @@ private fun ReasonsCard(reasons: List<String>, today: LocalDate, onAdd: () -> Un
         if (reasons.size > 1) {
             Text("${i + 1} of ${reasons.size} · tap for the next", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f), modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+}
+
+/** One-time hint under the circle; the dashboard hides it after ~6 s or once the sheet is opened. */
+@Composable
+internal fun HomeTip(visible: Boolean) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = visible,
+        enter = androidx.compose.animation.fadeIn(Motion.standard()) + androidx.compose.animation.expandVertically(Motion.standard()),
+        exit = androidx.compose.animation.fadeOut(Motion.standard()) + androidx.compose.animation.shrinkVertically(Motion.standard()),
+    ) {
+        Box(Modifier.padding(top = 14.dp)) {
+            Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.18f)) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.TouchApp, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Tip: long-press to add to home screen", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.92f))
+                }
+            }
         }
     }
 }

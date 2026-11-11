@@ -1,9 +1,5 @@
 package com.daymark.app.ui.widgets
 
-import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -49,13 +45,11 @@ import com.daymark.app.ui.components.pressScale
 import com.daymark.app.ui.components.rememberHaptics
 import com.daymark.app.widget.EventWidgetPinner
 import com.daymark.app.widget.StyleSwatch
-import com.daymark.app.widget.WidgetDefaults
+import com.daymark.app.widget.HomeWidgetPinner
 import com.daymark.app.widget.WidgetKind
-import com.daymark.app.widget.WidgetPinnedReceiver
 import com.daymark.app.widget.WidgetPreview
 import com.daymark.app.widget.WidgetSnapshot
 import com.daymark.app.widget.WidgetStyle
-import com.daymark.app.widget.receiver
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,8 +66,6 @@ fun WidgetGalleryScreen(vm: MainViewModel, onBack: () -> Unit, onMessage: (Strin
     }
     var styleId by rememberSaveable { mutableStateOf(WidgetStyle.DEFAULT.id) }
     val style = WidgetStyle.of(styleId)
-    val manager = remember { AppWidgetManager.getInstance(context) }
-    val canPin = remember { manager.isRequestPinAppWidgetSupported }
 
     fun pin(kind: WidgetKind) {
         haptics.confirm()
@@ -82,21 +74,8 @@ fun WidgetGalleryScreen(vm: MainViewModel, onBack: () -> Unit, onMessage: (Strin
             EventWidgetPinner.pinEventWidget(context, null) { EventWidgetPinner.message(it)?.let(onMessage) }
             return
         }
-        WidgetDefaults.set(context, kind, style)
-        habit?.let { WidgetDefaults.setHabit(context, kind, it.id) }
-        if (!canPin) {
-            onMessage("Couldn't add the widget here. Long-press your home screen, choose Widgets, then Daymark.")
-            return
-        }
-        val callback = PendingIntent.getBroadcast(
-            context, kind.ordinal,
-            Intent(context, WidgetPinnedReceiver::class.java)
-                .putExtra(WidgetPinnedReceiver.EXTRA_STYLE, style.id)
-                .putExtra(WidgetPinnedReceiver.EXTRA_KIND, kind.name)
-                .putExtra(WidgetPinnedReceiver.EXTRA_HABIT, habit?.id ?: 0L),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
-        )
-        manager.requestPinAppWidget(ComponentName(context, kind.receiver()), null, callback)
+        HomeWidgetPinner.pin(context, kind, style, habit?.id ?: 0L)
+            .let { EventWidgetPinner.message(it) }?.let(onMessage)
     }
 
     Column(Modifier.fillMaxSize()) {
