@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.2 — 2026-11-11 (versionCode 12)
+
+• The Calendar now marks every day you wrote a journal entry with a small badge, so you can find them at a glance (break and build habits)
+• Build habits show that day's journal entries on the Calendar too
+• Refreshed store screenshots and description
+
+
 ## 1.6.1 — 2026-11-11 (versionCode 11)
 
 • Add any event to your home screen straight from the app: long-press an event card, use the editor menu, or tap "Add to home screen" when you create one

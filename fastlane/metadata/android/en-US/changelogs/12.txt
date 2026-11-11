@@ -1,0 +1,4 @@
+New in 1.6.2:
+• The Calendar now marks every day you wrote a journal entry with a small badge, so you can find them at a glance (break and build habits)
+• Build habits show that day's journal entries on the Calendar too
+• Refreshed store screenshots and description
