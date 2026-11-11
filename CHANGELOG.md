@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0 — 2026-11-11 (versionCode 10)
+
+• Events: count down to dates, count time since, or run timers, with built-in Today / Week / Month / Year progress
+• 5 card designs, 10 fonts, custom colours and icons, with a live preview as you edit
+• New home-screen Event widget: pick an event or auto-show the next one, with full, translucent or transparent backgrounds
+• Optional event notifications, calendar import (only when you choose it) and a "Give me ideas" starter list
+• Fixed the Ring widget not updating after the day changes
+• All your habits, slips and history are untouched
+
+
 ## 1.5.1 — 2026-11-11 (versionCode 9)
 
 • Sharper widgets: the ring and heatmap are now drawn at your screen's full resolution instead of being stretched
