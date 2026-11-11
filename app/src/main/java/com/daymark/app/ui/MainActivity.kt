@@ -288,7 +288,8 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     vm, padding, settings,
                     onOpenEvent = { nav.navigate(eventRoute(it.id)) },
                     onNewEvent = { nav.navigate(eventRoute(kind = it)) },
-                    onGiveIdeas = { nav.navigate(eventRoute(kind = EventKind.COUNTDOWN)) },
+                    onGiveIdeas = { nav.navigate("event_wizard?ideas=true") },
+                    onImportCalendar = { nav.navigate("events_import") },
                     onOpenSettings = { selectTab(Tab.SETTINGS) },
                     onDeleted = { event ->
                         scope.launch {
@@ -323,12 +324,41 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     },
                 )
             }
+            composable(
+                "event_wizard?ideas={ideas}",
+                arguments = listOf(navArgument("ideas") { type = NavType.BoolType; defaultValue = false }),
+                enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
+            ) { entry ->
+                com.daymark.app.ui.events.EventWizardScreen(
+                    vm, startAtIdeas = entry.arguments?.getBoolean("ideas") ?: false,
+                    onClose = { nav.popBackStack() },
+                    onOpenWidgetHelp = { nav.popBackStack(); nav.navigate("events_widgets") },
+                )
+            }
+            composable(
+                "events_import",
+                enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },
+                popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
+            ) {
+                com.daymark.app.ui.events.EventImportScreen(
+                    vm, onBack = { nav.popBackStack() },
+                    onDone = { n ->
+                        nav.popBackStack()
+                        selectTab(Tab.EVENTS)
+                        scope.launch { snackbar.showSnackbar(if (n == 1) "Imported 1 event" else "Imported $n events") }
+                    },
+                )
+            }
             composable(Tab.SETTINGS.route) {
                 SettingsScreen(
                     vm, padding,
                     onOpenWidgets = { nav.navigate("widgets") },
                     onOpenEventNotifications = { nav.navigate("events_notifications") },
                     onOpenEventWidgets = { nav.navigate("events_widgets") },
+                    onImportCalendar = { nav.navigate("events_import") },
                     onAddHabit = { nav.navigate(habitRoute()) },
                     onEditHabit = { nav.navigate(habitRoute(it.id)) },
                 )

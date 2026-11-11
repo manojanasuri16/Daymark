@@ -6,6 +6,7 @@ Daymark is a private, offline-first Android app for building good habits and bre
 
 - **Privacy:** never add the `INTERNET` permission, analytics, crash SDKs, ads or accounts. Data lives only on the device. The store listing, privacy policy and Data-safety form all promise this.
 - **Tone:** say "slip", never "failure" or "relapse" in UI copy. Keep it supportive and non-judgmental. A slip must never erase history: longest streak, total clean days and achievements are always kept.
+- **Permissions:** `READ_CALENDAR` is the only permission beyond notifications and boot-completed. It is optional, declared for the one-time "Import from calendar" feature (`ui/events/EventImportScreen.kt`) and must only ever be requested at runtime after the user taps that row, behind a rationale card. Never read the calendar in the background or write to it.
 - **Distribution is AppDrop only** (`appdrop.json`, `appdrop/`, APKs from GitHub Releases). No Play Store work.
 - **Never change** `applicationId` (`com.daymark.app`) or the signing key. Doing so would break every user's updates.
 - **`versionCode` must go up with every release** (`scripts/release.sh` does this).
@@ -85,6 +86,8 @@ widget/
   WidgetPreview.kt  Compose mirror of each widget (used by the style picker and in-app gallery)
   WidgetConfigActivity.kt  style + tracker picker (launcher "configure"), WidgetPinnedReceiver
 ui/events/   Events tab (5th bottom-bar tab): EventsScreen (filter/sort/size pills persisted in settings, LazyVerticalGrid of EventCard, long-press menu, speed-dial FAB, battery nag, empty state), EventEditorScreen(vm, eventId, kind, onClose, onDeleted) behind route `event?id=&kind=` (modal slide-up; full editor, see below), EventCard/EventArt renderer. Pure list logic in domain/EventListLogic.kt (archived only under Archived; repeating/open-ended events are always ongoing). Notifications open an event via Routes.event(id) ("event:<id>").
+ui/events/EventWizardScreen.kt  guided new-event flow (route `event_wizard?ideas=`): starters, ideas, name, date, style, "ready" sheet. Timer ideas become countdowns here.
+ui/events/EventImportScreen.kt + domain/CalendarImport.kt  one-time calendar import (route `events_import`); pure mapping/dedupe/search is unit-tested, all-day instances arrive at UTC midnight and are converted to local midnight
 debug/…/DemoSeedReceiver.kt   demo data, debug builds only
 ```
 

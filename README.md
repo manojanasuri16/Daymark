@@ -29,8 +29,9 @@ Every day you mark is a day you made. A slip never erases what you've built.
   - **Your progress:** money kept, urges ridden out, clean days and best streak
 
   There are six styles (Dusk, Dawn, Forest, Midnight, Sunrise, Minimal), and each widget can show any tracker. Pick them in the in-app gallery (*Settings → Widgets*) or from the launcher.
+- **Events:** countdowns, time-since and timers as cards in five designs (Text, Ring, Grid, Bars, Minimal) with ten fonts, a home-screen Event widget (full, translucent or transparent background, plus an upcoming queue), optional notifications, built-in Today / Week / Month / Year progress, about 60 ideas with a first-run wizard, and an optional one-time import from the device calendar (`READ_CALENDAR`, asked only when you tap the import row).
 - **Privacy:**
-  - There is no INTERNET permission, no account and no analytics.
+  - There is no INTERNET permission, no account and no analytics. The only extra permission is the optional, user-initiated calendar read.
   - Optional app lock uses biometrics or the device credential.
   - Optional "hide in recents" (FLAG_SECURE) blanks the app preview and blocks screenshots.
   - **Discreet mode** (on by default): widgets, notifications, the Quick Settings tile and share cards never name what you're tracking.

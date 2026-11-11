@@ -44,6 +44,16 @@ HOME-SCREEN WIDGETS
 • Six styles for every widget: Dusk, Dawn, Forest, Midnight, Sunrise and Minimal
 • Each widget can show the tracker you choose
 
+EVENTS: COUNTDOWNS, TIME SINCE AND TIMERS
+• Count down to a birthday, trip or deadline, count up from a fresh start, or run a timer
+• Five card designs: Text, Ring, Grid, Bars and Minimal, with ten fonts and ready-made colour looks
+• A home-screen Event widget with three backgrounds (full, translucent, transparent) and an upcoming queue that shows your next event
+• Optional notifications: when it arrives, a day or week before, and milestones after
+• Built-in Today, This week, This month and This year progress cards
+• Around 60 ideas and a friendly set-up wizard to get started in seconds
+• Optional one-time import from your calendar, only when you ask, read on your phone and never sent anywhere
+• Share any card as an image
+
 ACHIEVEMENTS
 • 12 milestones, from 24 hours to 5 years
 • Earned against your longest streak, so they are never taken away after a slip
@@ -68,6 +78,7 @@ INSIGHTS
 PRIVATE BY DESIGN
 • No account, no ads, no analytics
 • No internet permission: the app cannot send your data anywhere
+• Calendar access is optional and asked only if you choose to import events
 • Optional app lock with your fingerprint, face or device PIN, handled by Android
 • Optional "hide in recents" blanks the app preview and blocks screenshots
 • Discreet mode: widgets and notifications never name what you're tracking

@@ -134,6 +134,7 @@ fun EventsScreen(
     onOpenEvent: (CountEvent) -> Unit,
     onNewEvent: (EventKind) -> Unit,
     onGiveIdeas: () -> Unit,
+    onImportCalendar: () -> Unit,
     onOpenSettings: () -> Unit,
     onDeleted: (CountEvent) -> Unit,
 ) {
@@ -169,7 +170,7 @@ fun EventsScreen(
                 Column {
                     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Events", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-                        OverflowMenu(onOpenSettings = onOpenSettings, onGiveIdeas = onGiveIdeas)
+                        OverflowMenu(onOpenSettings = onOpenSettings, onGiveIdeas = onGiveIdeas, onImportCalendar = onImportCalendar)
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -252,12 +253,13 @@ fun EventsScreen(
 }
 
 @Composable
-private fun OverflowMenu(onOpenSettings: () -> Unit, onGiveIdeas: () -> Unit) {
+private fun OverflowMenu(onOpenSettings: () -> Unit, onGiveIdeas: () -> Unit, onImportCalendar: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = "More options") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("Give me ideas") }, onClick = { open = false; onGiveIdeas() })
+            DropdownMenuItem(text = { Text("Import from calendar") }, onClick = { open = false; onImportCalendar() })
             DropdownMenuItem(text = { Text("Settings") }, onClick = { open = false; onOpenSettings() })
         }
     }

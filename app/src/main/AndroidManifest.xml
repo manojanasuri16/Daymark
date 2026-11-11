@@ -7,6 +7,9 @@
     <!-- Re-plan habit reminders after a reboot. Reminders use inexact alarms: no exact-alarm permission. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Optional: asked only when the user taps "Import from calendar". Read once, on device; nothing is sent anywhere. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <queries>
         <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
     </queries>

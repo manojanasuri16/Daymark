@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Info
@@ -110,6 +111,7 @@ fun SettingsScreen(
     onOpenWidgets: () -> Unit = {},
     onOpenEventNotifications: () -> Unit = {},
     onOpenEventWidgets: () -> Unit = {},
+    onImportCalendar: () -> Unit = {},
     onAddHabit: () -> Unit = {},
     onEditHabit: (Habit) -> Unit = {},
 ) {
@@ -290,6 +292,12 @@ fun SettingsScreen(
                     Icons.Rounded.Widgets, "Widgets",
                     "Refresh every ${settings.widgetRefreshMinutes} min · battery and troubleshooting",
                     onClick = onOpenEventWidgets,
+                )
+                Divider()
+                SettingRow(
+                    Icons.Rounded.CalendarMonth, "Import from calendar",
+                    "Pick upcoming calendar events to count down to",
+                    onClick = onImportCalendar,
                 )
             }
         }
