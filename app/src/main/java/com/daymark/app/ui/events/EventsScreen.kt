@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.Timelapse
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material3.Button
+import com.daymark.app.widget.EventWidgetPinner
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -153,6 +154,7 @@ fun EventsScreen(
     val haptic = LocalHapticFeedback.current
     val showNag = !settings.batteryNagDismissed && !HabitReminders.isIgnoringBatteryOptimizations(context)
     val size = settings.eventCardSize
+    fun pinWidget(eventId: Long?) = EventWidgetPinner.pinEventWidget(context, eventId) { EventWidgetPinner.message(it)?.let(vm::say) }
 
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -170,7 +172,7 @@ fun EventsScreen(
                 Column {
                     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Events", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-                        OverflowMenu(onOpenSettings = onOpenSettings, onGiveIdeas = onGiveIdeas, onImportCalendar = onImportCalendar)
+                        OverflowMenu(onOpenSettings = onOpenSettings, onGiveIdeas = onGiveIdeas, onImportCalendar = onImportCalendar, onAddWidget = { pinWidget(null) })
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -218,6 +220,7 @@ fun EventsScreen(
                     )
                     DropdownMenu(expanded = menuFor == event.id, onDismissRequest = { menuFor = null }) {
                         DropdownMenuItem(text = { Text("Edit") }, onClick = { menuFor = null; onOpenEvent(event) })
+                        DropdownMenuItem(text = { Text("Add to home screen") }, onClick = { menuFor = null; pinWidget(event.id) })
                         DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menuFor = null; vm.duplicateEvent(event) })
                         DropdownMenuItem(
                             text = { Text(if (event.archived) "Unarchive" else "Archive") },
@@ -253,13 +256,14 @@ fun EventsScreen(
 }
 
 @Composable
-private fun OverflowMenu(onOpenSettings: () -> Unit, onGiveIdeas: () -> Unit, onImportCalendar: () -> Unit) {
+private fun OverflowMenu(onOpenSettings: () -> Unit, onGiveIdeas: () -> Unit, onImportCalendar: () -> Unit, onAddWidget: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = "More options") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("Give me ideas") }, onClick = { open = false; onGiveIdeas() })
             DropdownMenuItem(text = { Text("Import from calendar") }, onClick = { open = false; onImportCalendar() })
+            DropdownMenuItem(text = { Text("Add a widget") }, onClick = { open = false; onAddWidget() })
             DropdownMenuItem(text = { Text("Settings") }, onClick = { open = false; onOpenSettings() })
         }
     }

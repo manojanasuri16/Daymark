@@ -74,6 +74,13 @@ class EventWidgetConfigActivity : ComponentActivity() {
         setResult(RESULT_CANCELED, result)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
         val glanceId = runCatching { GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId) }.getOrNull() ?: run { finish(); return }
+        // Pinned from inside the app for a specific event: no picker, the new widget already knows what to show.
+        if (runBlocking { claimPendingEventPin(applicationContext, glanceId) }) {
+            runBlocking { EventWidget().update(applicationContext, glanceId) }
+            setResult(RESULT_OK, result)
+            finish()
+            return
+        }
         val state = runBlocking { getAppWidgetState(this@EventWidgetConfigActivity, PreferencesGlanceStateDefinition, glanceId) }
         val settings0 = runBlocking { container.settings.current() }
         val initialId = state[EventIdKey] ?: 0L

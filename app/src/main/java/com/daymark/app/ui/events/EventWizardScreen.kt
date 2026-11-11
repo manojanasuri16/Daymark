@@ -51,6 +51,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
+import com.daymark.app.widget.EventWidgetPinner
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
@@ -195,8 +197,8 @@ fun EventWizardScreen(vm: MainViewModel, startAtIdeas: Boolean, onClose: () -> U
         val i = path.indexOf(step)
         if (step == S_STYLE) {
             val e = draft()
-            vm.saveEvent(e)
             created = e
+            vm.saveEvent(e) { id -> created = e.copy(id = id) }
         } else if (i >= 0 && i < path.lastIndex) step = path[i + 1]
     }
     BackHandler(enabled = created == null) { back() }
@@ -363,7 +365,14 @@ fun EventWizardScreen(vm: MainViewModel, startAtIdeas: Boolean, onClose: () -> U
                     "You can now add it to your home screen widgets.", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                 )
-                Button(onClick = onClose, modifier = Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = 52.dp)) { Text("Awesome!") }
+                val context = LocalContext.current
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f).heightIn(min = 52.dp)) { Text("Awesome!") }
+                    Button(
+                        onClick = { EventWidgetPinner.pinEventWidget(context, e.id.takeIf { it != 0L }) { EventWidgetPinner.message(it)?.let(vm::say) } },
+                        modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
+                    ) { Text("Add to home screen") }
+                }
                 TextButton(onClick = onOpenWidgetHelp, modifier = Modifier.heightIn(min = 48.dp)) { Text("Need help with widgets?") }
             }
         }

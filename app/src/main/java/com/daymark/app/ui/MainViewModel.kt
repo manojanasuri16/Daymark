@@ -221,7 +221,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // Events
     /** Creates or updates an event. */
-    fun saveEvent(event: CountEvent) = viewModelScope.launch { c.events.save(event) }
+    fun saveEvent(event: CountEvent, onSaved: (Long) -> Unit = {}) = viewModelScope.launch { onSaved(c.events.save(event)) }
+    /** Shows a one-off message (snackbar). */
+    fun say(message: String) { _events.tryEmit(message) }
     fun deleteEvent(event: CountEvent) = viewModelScope.launch { c.events.delete(event.id) }
     /** Undo of [deleteEvent]. */
     fun restoreEvent(event: CountEvent) = viewModelScope.launch { c.events.restore(event) }

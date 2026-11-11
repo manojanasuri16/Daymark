@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import com.daymark.app.widget.EventWidgetPinner
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -209,6 +210,7 @@ private fun EditorBody(vm: MainViewModel, initial: CountEvent, isNew: Boolean, o
                 TabBar(tab, { tab = it }, showOverflow = !isNew, menuOpen = menuOpen, onMenu = { menuOpen = it }) { action ->
                     menuOpen = false
                     when (action) {
+                        Overflow.WIDGET -> EventWidgetPinner.pinEventWidget(context, initial.id) { EventWidgetPinner.message(it)?.let(vm::say) }
                         Overflow.DUPLICATE -> { vm.duplicateEvent(initial); onClose() }
                         Overflow.ARCHIVE -> { vm.archiveEvent(initial.id, !initial.archived); onClose() }
                         Overflow.DELETE -> deleteAsk = true
@@ -245,7 +247,7 @@ private fun EditorBody(vm: MainViewModel, initial: CountEvent, isNew: Boolean, o
     }
 }
 
-private enum class Overflow { DUPLICATE, ARCHIVE, DELETE }
+private enum class Overflow { WIDGET, DUPLICATE, ARCHIVE, DELETE }
 
 @Composable
 private fun TabBar(
@@ -270,6 +272,7 @@ private fun TabBar(
                 Box {
                     IconButton(onClick = { onMenu(true) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.MoreVert, "More actions") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { onMenu(false) }) {
+                        DropdownMenuItem(text = { Text("Add to home screen") }, onClick = { onAction(Overflow.WIDGET) })
                         DropdownMenuItem(text = { Text("Duplicate") }, onClick = { onAction(Overflow.DUPLICATE) })
                         DropdownMenuItem(text = { Text("Archive or unarchive") }, onClick = { onAction(Overflow.ARCHIVE) })
                         DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { onAction(Overflow.DELETE) })

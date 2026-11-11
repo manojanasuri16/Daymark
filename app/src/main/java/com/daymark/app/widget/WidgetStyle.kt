@@ -70,7 +70,7 @@ enum class WidgetKind(val title: String, val blurb: String) {
     QUOTE("Daily motivation", "A gentle message, or your own reasons — tap for another"),
     ACTIONS("Quick actions", "Ride out an urge or journal in one tap"),
     STATS("Your progress", "Money kept, urges ridden out and more"),
-    EVENT("Event", "Countdown or time-since card, in the design you made"),
+    EVENT("Event", "Countdown or time-since card in the design you made. Added from here it shows the event nearest to finish"),
 }
 
 /** Style that newly placed widgets of a kind adopt (set from the in-app gallery right before pinning). */

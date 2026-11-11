@@ -168,6 +168,7 @@
         </receiver>
 
         <receiver android:name=".widget.WidgetPinnedReceiver" android:exported="false" />
+        <receiver android:name=".widget.EventWidgetPinnedReceiver" android:exported="false" />
 
         <receiver android:name=".notify.HabitReminderReceiver" android:exported="false" />
 

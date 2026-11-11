@@ -47,6 +47,7 @@ import com.daymark.app.ui.MainViewModel
 import com.daymark.app.ui.components.DaymarkCard
 import com.daymark.app.ui.components.pressScale
 import com.daymark.app.ui.components.rememberHaptics
+import com.daymark.app.widget.EventWidgetPinner
 import com.daymark.app.widget.StyleSwatch
 import com.daymark.app.widget.WidgetDefaults
 import com.daymark.app.widget.WidgetKind
@@ -76,10 +77,15 @@ fun WidgetGalleryScreen(vm: MainViewModel, onBack: () -> Unit, onMessage: (Strin
 
     fun pin(kind: WidgetKind) {
         haptics.confirm()
+        if (kind == WidgetKind.EVENT) {
+            // No event is chosen here, so the widget shows the one nearest to finish.
+            EventWidgetPinner.pinEventWidget(context, null) { EventWidgetPinner.message(it)?.let(onMessage) }
+            return
+        }
         WidgetDefaults.set(context, kind, style)
         habit?.let { WidgetDefaults.setHabit(context, kind, it.id) }
         if (!canPin) {
-            onMessage("Long-press your home screen → Widgets → Daymark")
+            onMessage("Couldn't add the widget here. Long-press your home screen, choose Widgets, then Daymark.")
             return
         }
         val callback = PendingIntent.getBroadcast(

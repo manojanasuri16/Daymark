@@ -84,6 +84,9 @@ internal suspend fun DaymarkGlanceWidget.provideEventContent(app: Context, id: G
     // Without it the very first read of a freshly pinned widget hit a missing file and some launchers showed
     // "Can't show content" until they were restarted.
     runCatching { updateAppWidgetState(app, id) { if (it[RefreshKey] == null) it[RefreshKey] = System.currentTimeMillis() } }
+    // A widget pinned from inside the app adopts the requested event right away (claimed once, expires after ~2 min),
+    // even if the pin-success broadcast is late or never arrives. Already-configured widgets are never touched.
+    runCatching { claimPendingEventPin(app, id) }
     provideContent {
         val context = LocalContext.current
         val events by app.container.events.events.collectAsState(e0)
