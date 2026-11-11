@@ -64,6 +64,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -73,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.domain.Format
 import com.daymark.app.domain.Messages
+import com.daymark.app.domain.NonSlipNote
 import com.daymark.app.domain.Options
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.StreakEngine
@@ -105,12 +107,18 @@ fun LogScreen(
     initialDate: Long?,
     onClose: () -> Unit,
     onDeleted: (RelapseRecord) -> Unit,
+    noteId: Long = 0,
 ) {
     val zone = ZoneId.systemDefault()
     val haptics = rememberHaptics()
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
 
-    var loaded by rememberSaveable { mutableStateOf(editId == 0L) }
+    var loaded by rememberSaveable { mutableStateOf(editId == 0L && noteId == 0L) }
+    // 0 = slip, 1 = "not a slip" note. Only chosen when creating a new entry.
+    var kind by rememberSaveable { mutableStateOf(0) }
+    val isNewEntry = editId == 0L && noteId == 0L
+    val noteMode = noteId != 0L || (isNewEntry && kind == 1)
+    var originalNote by remember { mutableStateOf<NonSlipNote?>(null) }
     var timestamp by rememberSaveable {
         mutableLongStateOf(
             initialDate?.let { day ->
@@ -143,6 +151,20 @@ fun LogScreen(
         }
     }
 
+    LaunchedEffect(noteId) {
+        if (noteId != 0L && originalNote == null) {
+            val n = vm.notes.value.firstOrNull { it.id == noteId }
+                ?: withTimeoutOrNull(3_000) { vm.notes.first { l -> l.any { it.id == noteId } } }?.firstOrNull { it.id == noteId }
+            if (n != null) {
+                originalNote = n
+                if (!loaded) {
+                    timestamp = n.timestamp; notes = n.notes
+                    loaded = true
+                }
+            }
+        }
+    }
+
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var showCustom by remember { mutableStateOf(false) }
@@ -156,7 +178,7 @@ fun LogScreen(
         TopAppBar(
             title = {
                 Column {
-                    Text(if (editId != 0L) "Edit entry" else if (habit?.isReduce == true) "Log a use" else "Log a slip")
+                    Text(if (noteId != 0L) "Edit note" else if (noteMode) "Not a slip" else if (editId != 0L) "Edit entry" else if (habit?.isReduce == true) "Log a use" else "Log a slip")
                     habit?.let {
                         Text("${it.emoji}  ${it.displayName}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -164,7 +186,9 @@ fun LogScreen(
             },
             navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close") } },
             actions = {
-                if (editId != 0L) IconButton(onClick = { showConfirmDelete = true }) { Icon(Icons.Rounded.DeleteOutline, "Delete entry") }
+                if (editId != 0L || noteId != 0L) IconButton(onClick = { showConfirmDelete = true }) {
+                    Icon(Icons.Rounded.DeleteOutline, if (noteId != 0L) "Delete note" else "Delete entry")
+                }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
         )
@@ -176,9 +200,14 @@ fun LogScreen(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            if (editId == 0L) {
+            if (isNewEntry) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KindOption("Slip", "Resets your current streak", kind == 0, Modifier.weight(1f)) { haptics.tick(); kind = 0 }
+                    KindOption("Not a slip", "Saved as a note. Your streak stays safe", kind == 1, Modifier.weight(1f)) { haptics.tick(); kind = 1 }
+                }
                 Text(
-                    "Being honest with yourself is part of recovery. This stays private, on this device only.",
+                    if (noteMode) "Happens to everyone. This is just a note, your streak is safe."
+                    else "Being honest with yourself is part of recovery. This stays private, on this device only.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -205,7 +234,7 @@ fun LogScreen(
                 }
             }
 
-            Section("How were you feeling?") {
+            if (!noteMode) Section("How were you feeling?") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Options.moods.forEach { m ->
                         MoodButton(m.emoji, m.label, selected = mood == m.value) {
@@ -215,7 +244,7 @@ fun LogScreen(
                 }
             }
 
-            Section("What triggered it?", hint = "Choose any that apply") {
+            if (!noteMode) Section("What triggered it?", hint = "Choose any that apply") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     (Options.triggers + customTriggers).distinct().forEach { t ->
                         val on = t in triggers
@@ -237,7 +266,7 @@ fun LogScreen(
                 }
             }
 
-            Section("Where were you?") {
+            if (!noteMode) Section("Where were you?") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Options.situations.forEach { s ->
                         FilterChip(
@@ -253,12 +282,12 @@ fun LogScreen(
                 }
             }
 
-            Section("Notes", hint = "What happened, and what might help next time?") {
+            Section("Notes", hint = if (noteMode) null else "What happened, and what might help next time?") {
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it.take(2000) },
                     modifier = Modifier.fillMaxWidth().height(140.dp),
-                    placeholder = { Text("Optional") },
+                    placeholder = { Text(if (noteMode) "Optional. Write whatever fits." else "Optional") },
                     shape = RoundedCornerShape(16.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
@@ -270,6 +299,18 @@ fun LogScreen(
             Button(
                 onClick = {
                     haptics.confirm()
+                    if (noteMode) {
+                        vm.saveNote(
+                            NonSlipNote(
+                                id = noteId,
+                                habitId = originalNote?.habitId ?: habit?.id ?: 1L,
+                                timestamp = timestamp,
+                                notes = notes.trim(),
+                            ),
+                        )
+                        onClose()
+                        return@Button
+                    }
                     val record = RelapseRecord(
                         id = if (editId == 0L) 0 else editId,
                         timestamp = timestamp,
@@ -296,7 +337,7 @@ fun LogScreen(
                 enabled = loaded && !isFuture,
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp).height(56.dp),
                 shape = RoundedCornerShape(18.dp),
-            ) { Text(if (editId == 0L) "Save entry" else "Save changes", style = MaterialTheme.typography.titleMedium) }
+            ) { Text(if (noteMode) (if (noteId == 0L) "Save note" else "Save changes") else if (editId == 0L) "Save entry" else "Save changes", style = MaterialTheme.typography.titleMedium) }
         }
     }
 
@@ -369,12 +410,17 @@ fun LogScreen(
     if (showConfirmDelete) {
         AlertDialog(
             onDismissRequest = { showConfirmDelete = false },
-            title = { Text("Delete this entry?") },
-            text = { Text("Your streaks will be recalculated. You can undo this right after.") },
+            title = { Text(if (noteId != 0L) "Delete this note?" else "Delete this entry?") },
+            text = { Text(if (noteId != 0L) "Your streaks are not affected." else "Your streaks will be recalculated. You can undo this right after.") },
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmDelete = false
-                    original?.let { vm.deleteRelapse(it); onDeleted(it) } ?: onClose()
+                    if (noteId != 0L) {
+                        originalNote?.let { vm.deleteNote(it) }
+                        onClose()
+                    } else {
+                        original?.let { vm.deleteRelapse(it); onDeleted(it) } ?: onClose()
+                    }
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { showConfirmDelete = false }) { Text("Keep") } },
@@ -392,6 +438,21 @@ fun LogScreen(
                 Button(onClick = { savedSummary = null; onClose() }, shape = RoundedCornerShape(14.dp)) { Text("Begin again") }
             },
         )
+    }
+}
+
+@Composable
+private fun KindOption(title: String, subtitle: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.daymark.app.domain.Completion
 import com.daymark.app.domain.Habit
 import com.daymark.app.domain.JournalEntry
+import com.daymark.app.domain.NonSlipNote
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.UrgeRecord
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
     suspend fun delete(id: Long) = db.withTransaction {
         db.relapseDao().deleteForHabit(id)
         db.urgeDao().deleteForHabit(id)
+        db.noteDao().deleteForHabit(id)
         db.completionDao().deleteForHabit(id)
         db.journalPhotoDao().deleteForHabit(id) // image files are swept by PhotoStore
         db.journalDao().deleteForHabit(id)
@@ -66,6 +68,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         journal: List<JournalEntity> = emptyList(),
         photos: List<JournalPhotoEntity> = emptyList(),
         completions: List<CompletionEntity> = emptyList(),
+        notes: List<NoteEntity> = emptyList(),
     ) = db.withTransaction {
         clearAll()
         dao.insertAll(habits)
@@ -74,6 +77,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
         db.journalDao().insertAll(journal)
         db.journalPhotoDao().insertAll(photos)
         db.completionDao().insertAll(completions)
+        db.noteDao().insertAll(notes)
     }
 
     suspend fun clear() = db.withTransaction { clearAll() }
@@ -81,6 +85,7 @@ class HabitRepository(private val db: DaymarkDatabase) {
     private suspend fun clearAll() {
         db.relapseDao().clear()
         db.urgeDao().clear()
+        db.noteDao().clear()
         db.completionDao().clear()
         db.journalPhotoDao().clear()
         db.journalDao().clear()
@@ -125,6 +130,21 @@ class UrgeRepository(db: DaymarkDatabase) {
         else { dao.update(UrgeEntity.from(record)); record.id }
 
     suspend fun delete(record: UrgeRecord) = dao.delete(UrgeEntity.from(record))
+}
+
+/** "Not a slip" notes. They are never fed to the streak maths. */
+class NoteRepository(db: DaymarkDatabase) {
+    private val dao = db.noteDao()
+
+    val notes: Flow<List<NonSlipNote>> = dao.observeAll().map { list -> list.map { it.toNote() } }
+
+    suspend fun allEntities(): List<NoteEntity> = dao.getAll()
+
+    suspend fun save(note: NonSlipNote): Long =
+        if (note.id == 0L) dao.insert(NoteEntity.from(note))
+        else { dao.update(NoteEntity.from(note)); note.id }
+
+    suspend fun delete(note: NonSlipNote) = dao.delete(NoteEntity.from(note))
 }
 
 class JournalRepository(private val db: DaymarkDatabase) {

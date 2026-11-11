@@ -7,6 +7,7 @@ import com.daymark.app.data.CompletionRepository
 import com.daymark.app.data.HabitRepository
 import com.daymark.app.data.JournalRepository
 import com.daymark.app.data.RelapseRepository
+import com.daymark.app.data.NoteRepository
 import com.daymark.app.data.UrgeRepository
 import com.daymark.app.data.SettingsRepository
 import com.daymark.app.widget.WidgetUpdater
@@ -24,6 +25,7 @@ class AppContainer(val context: Context) {
     val relapses = RelapseRepository(database)
     val habits = HabitRepository(database)
     val urges = UrgeRepository(database)
+    val notes = NoteRepository(database)
     val completions = CompletionRepository(database)
     val journal = JournalRepository(database)
     val settings = SettingsRepository(context)

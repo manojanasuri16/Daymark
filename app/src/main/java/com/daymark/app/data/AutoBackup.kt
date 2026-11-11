@@ -25,6 +25,7 @@ object BackupWriter {
             settings, habits, c.relapses.allEntities(), c.urges.allEntities(), c.journal.allEntities(),
             journalPhotos = photos,
             completions = c.completions.allEntities(),
+            notes = c.notes.allEntities(),
         )
         return if (password.isBlank()) plain else BackupCrypto.encrypt(plain, password)
     }

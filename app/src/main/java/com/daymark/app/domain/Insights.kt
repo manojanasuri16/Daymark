@@ -65,6 +65,14 @@ data class UrgeRecord(
     val notes: String = "",
 )
 
+/** Something logged as "Not a slip": kept as a note, never touches streaks or totals. */
+data class NonSlipNote(
+    val id: Long,
+    val habitId: Long,
+    val timestamp: Long,
+    val notes: String = "",
+)
+
 /** A free-form journal entry, on any day. */
 data class JournalEntry(
     val id: Long,

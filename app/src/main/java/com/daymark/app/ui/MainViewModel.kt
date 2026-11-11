@@ -19,6 +19,7 @@ import com.daymark.app.domain.InsightsData
 import com.daymark.app.domain.InsightsEngine
 import com.daymark.app.domain.JournalEntry
 import com.daymark.app.domain.RelapseRecord
+import com.daymark.app.domain.NonSlipNote
 import com.daymark.app.domain.UrgeRecord
 import com.daymark.app.domain.StreakEngine
 import com.daymark.app.domain.StreakStats
@@ -71,6 +72,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val allUrges: StateFlow<List<UrgeRecord>> = c.urges.urges
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val allNotes: StateFlow<List<NonSlipNote>> = c.notes.notes
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** "Not a slip" notes for the selected tracker. */
+    val notes: StateFlow<List<NonSlipNote>> = combine(selectedHabit, allNotes) { h, n ->
+        if (h == null) emptyList() else n.filter { it.habitId == h.id }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val allJournal: StateFlow<List<JournalEntry>> = c.journal.entries
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -207,6 +216,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun restoreRelapse(record: RelapseRecord) = viewModelScope.launch { c.relapses.save(record) }
 
+    fun saveNote(note: NonSlipNote) = viewModelScope.launch { c.notes.save(note) }
+    fun deleteNote(note: NonSlipNote) = viewModelScope.launch { c.notes.delete(note) }
+
     fun saveUrge(record: UrgeRecord) = viewModelScope.launch { c.urges.save(record) }
     fun deleteUrge(record: UrgeRecord) = viewModelScope.launch { c.urges.delete(record) }
 
@@ -294,7 +306,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     data.mapNotNull { com.daymark.app.data.PhotoStore.fromBase64(app, it) }
                         .mapIndexed { i, name -> com.daymark.app.data.JournalPhotoEntity(journalId = journalId, fileName = name, sortOrder = i) }
                 }
-                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows, e.completions)
+                c.habits.replaceAll(habits, relapses, e.urges, e.journal, photoRows, e.completions, e.notes)
                 // Old photos aren't referenced any more.
                 com.daymark.app.data.PhotoStore.sweep(app, photoRows.map { it.fileName }.toSet(), now = Long.MAX_VALUE)
                 val current = c.settings.current()

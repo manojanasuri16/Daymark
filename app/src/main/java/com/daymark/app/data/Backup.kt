@@ -24,6 +24,10 @@ data class BackupUrge(
     val notes: String = "",
 )
 
+/** v6: a "Not a slip" note. */
+@Serializable
+data class BackupNote(val timestamp: Long, val notes: String = "")
+
 @Serializable
 data class BackupJournal(
     val timestamp: Long,
@@ -63,6 +67,8 @@ data class BackupHabit(
     /** Minutes after midnight, for [ReminderMode.TIMES]. */
     val reminderTimes: List<Int> = emptyList(),
     val completions: List<BackupCompletion> = emptyList(),
+    // v6: "Not a slip" notes
+    val notes: List<BackupNote> = emptyList(),
 )
 
 /** v5: one day's progress on a build habit. [amount] is in the habit's goal unit (1 for a simple check-off). */
@@ -70,6 +76,7 @@ data class BackupHabit(
 data class BackupCompletion(val epochDay: Long, val amount: Double)
 
 /**
+ * v6: "Not a slip" notes per tracker (never counted in streaks).
  * v5: "build a habit": kind, daily goal, weekly schedule, reminders and daily completions per tracker.
  * v4: journal photos (base64 JPEG inside each journal entry).
  * v3: money, "cut down" limit, reasons, urges and journal per tracker. v2: multiple trackers (`habits`).
@@ -91,7 +98,7 @@ data class BackupFile(
 ) {
     companion object {
         const val APP_ID = "daymark"
-        const val VERSION = 5
+        const val VERSION = 6
     }
 }
 
@@ -115,6 +122,7 @@ object BackupCodec {
         /** journal id → base64 photos, in order. */
         journalPhotos: Map<Long, List<String>> = emptyMap(),
         completions: List<CompletionEntity> = emptyList(),
+        notes: List<NoteEntity> = emptyList(),
     ): String = json.encodeToString(
         BackupFile.serializer(),
         BackupFile(
@@ -149,6 +157,7 @@ object BackupCodec {
                     reminderEnd = habit.reminder.activeEnd,
                     reminderTimes = habit.reminder.times,
                     completions = completions.filter { it.habitId == h.id }.map { BackupCompletion(it.epochDay, it.amount) },
+                    notes = notes.filter { it.habitId == h.id }.map { BackupNote(it.timestamp, it.notes) },
                 )
             },
         ),
@@ -179,6 +188,7 @@ object BackupCodec {
         /** journal id (as assigned in [journal]) → base64 photos. */
         val journalPhotos: Map<Long, List<String>> = emptyMap(),
         val completions: List<CompletionEntity> = emptyList(),
+        val notes: List<NoteEntity> = emptyList(),
     )
 
     /** Assigns fresh ids 1..n so entries can reference their habit. */
@@ -238,7 +248,10 @@ object BackupCodec {
             JournalEntity(id = j + 1L, habitId = habitId, timestamp = it.timestamp, mood = it.mood.coerceIn(0, 5), text = it.text)
         }
         val photos = backed.mapIndexedNotNull { j, (_, it) -> it.photos.takeIf { p -> p.isNotEmpty() }?.let { p -> (j + 1L) to p.take(PhotoStore.MAX_PER_ENTRY) } }.toMap()
-        return Entities(habits, relapses, urges, journal, photos, completions)
+        val notes = file.habits.flatMapIndexed { i, h ->
+            h.notes.map { NoteEntity(habitId = i + 1L, timestamp = it.timestamp, notes = it.notes) }
+        }
+        return Entities(habits, relapses, urges, journal, photos, completions, notes)
     }
 }
 

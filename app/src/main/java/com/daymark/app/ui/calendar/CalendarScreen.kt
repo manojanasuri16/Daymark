@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.domain.DayStatus
 import com.daymark.app.domain.Options
 import com.daymark.app.domain.JournalEntry
+import com.daymark.app.domain.NonSlipNote
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.UrgeRecord
 import com.daymark.app.domain.StreakEngine
@@ -87,6 +88,7 @@ fun CalendarScreen(
     onEditUrge: (UrgeRecord) -> Unit = {},
     onJournalForDay: (LocalDate) -> Unit = {},
     onEditJournal: (JournalEntry) -> Unit = {},
+    onEditNote: (NonSlipNote) -> Unit = {},
 ) {
     val habit by vm.selectedHabit.collectAsStateWithLifecycle()
     habit?.takeIf { it.isBuild }?.let { h ->
@@ -96,12 +98,14 @@ fun CalendarScreen(
     val relapses by vm.relapses.collectAsStateWithLifecycle()
     val urges by vm.urges.collectAsStateWithLifecycle()
     val journal by vm.journal.collectAsStateWithLifecycle()
+    val notes by vm.notes.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     val today = LocalDate.now()
     val journeyStart = habit?.startAt ?: System.currentTimeMillis()
     val slipTimes = remember(relapses, habit) { habit?.slipTimes(relapses.map { it.timestamp }, zone) ?: relapses.map { it.timestamp } }
     val earliest = slipTimes.minOrNull()
     val startDate = StreakEngine.toDate(earliest?.let { minOf(it, journeyStart) } ?: journeyStart, zone)
+    val noteDays = remember(notes) { notes.map { StreakEngine.toDate(it.timestamp, zone) }.toSet() }
     val relapseDates = remember(slipTimes) { StreakEngine.relapseDates(slipTimes, zone) }
 
     val firstMonth = YearMonth.from(startDate).let { if (it.isAfter(YearMonth.from(today))) YearMonth.from(today) else it }
@@ -160,6 +164,7 @@ fun CalendarScreen(
                         today = today,
                         selected = selected,
                         statusOf = statusOf,
+                        noteDays = noteDays,
                         onSelect = { selectedEpochDay = it.toEpochDay() },
                     )
                 }
@@ -205,6 +210,8 @@ fun CalendarScreen(
         val dayUrges = urges.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
         val dayJournal = journal.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
         items(dayUrges, key = { "u${it.id}" }) { u -> UrgeCard(u, zone) { onEditUrge(u) } }
+        val dayNotes = notes.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        items(dayNotes, key = { "n${it.id}" }) { n -> NoteCard(n, zone) { onEditNote(n) } }
         items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
         if (!selected.isAfter(today)) {
             item("logDay") {
@@ -259,6 +266,7 @@ private fun MonthGrid(
     today: LocalDate,
     selected: LocalDate,
     statusOf: (LocalDate) -> DayStatus,
+    noteDays: Set<LocalDate>,
     onSelect: (LocalDate) -> Unit,
 ) {
     val first = month.atDay(1)
@@ -274,7 +282,7 @@ private fun MonthGrid(
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(3.dp), contentAlignment = Alignment.Center) {
                         if (index in offset until cells) {
                             val date = month.atDay(day)
-                            DayCell(date, statusOf(date), date == today, date == selected) { onSelect(date) }
+                            DayCell(date, statusOf(date), date == today, date == selected, date in noteDays) { onSelect(date) }
                         }
                     }
                 }
@@ -284,7 +292,7 @@ private fun MonthGrid(
 }
 
 @Composable
-private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSelected: Boolean, onClick: () -> Unit) {
+private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSelected: Boolean, hasNote: Boolean, onClick: () -> Unit) {
     val colors = DaymarkTheme.colors
     val haptics = rememberHaptics()
     val source = remember { MutableInteractionSource() }
@@ -316,6 +324,12 @@ private fun DayCell(date: LocalDate, status: DayStatus, isToday: Boolean, isSele
             Surface(
                 color = textColor, shape = CircleShape,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(4.dp),
+            ) {}
+        }
+        if (hasNote) {
+            Surface(
+                color = textColor.copy(alpha = 0.85f), shape = CircleShape,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(4.dp),
             ) {}
         }
     }
@@ -412,6 +426,24 @@ private fun UrgeCard(u: UrgeRecord, zone: ZoneId, onClick: () -> Unit) {
         if (u.notes.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(u.notes, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun NoteCard(n: NonSlipNote, zone: ZoneId, onClick: () -> Unit) {
+    val time = Instant.ofEpochMilli(n.timestamp).atZone(zone).toLocalTime().format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    DaymarkCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f), shape = RoundedCornerShape(12.dp), modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("📝", style = MaterialTheme.typography.titleLarge) }
+            }
+            Spacer(Modifier.width(14.dp))
+            Text("$time · Not a slip", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        }
+        if (n.notes.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(n.notes, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
 }

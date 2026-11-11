@@ -174,8 +174,8 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 private const val HABIT_ROUTE = "habit?id={id}"
 private fun habitRoute(id: Long = 0) = "habit?id=$id"
 
-private const val LOG_ROUTE = "log?id={id}&day={day}"
-private fun logRoute(id: Long = 0, day: Long? = null) = "log?id=$id&day=${day ?: Long.MIN_VALUE}"
+private const val LOG_ROUTE = "log?id={id}&day={day}&note={note}"
+private fun logRoute(id: Long = 0, day: Long? = null, note: Long = 0) = "log?id=$id&day=${day ?: Long.MIN_VALUE}&note=$note"
 
 private const val URGE_ROUTE = "urge?id={id}&day={day}"
 private fun urgeRoute(id: Long = 0, day: Long? = null) = "urge?id=$id&day=${day ?: Long.MIN_VALUE}"
@@ -269,6 +269,7 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     onEditUrge = { nav.navigate(urgeRoute(id = it.id)) },
                     onJournalForDay = { nav.navigate(journalRoute(day = it.toEpochDay())) },
                     onEditJournal = { nav.navigate(journalRoute(id = it.id)) },
+                    onEditNote = { nav.navigate(logRoute(note = it.id)) },
                 )
             }
             composable(Tab.INSIGHTS.route) { InsightsScreen(vm, padding) }
@@ -340,6 +341,7 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                 arguments = listOf(
                     navArgument("id") { type = NavType.LongType; defaultValue = 0L },
                     navArgument("day") { type = NavType.LongType; defaultValue = Long.MIN_VALUE },
+                    navArgument("note") { type = NavType.LongType; defaultValue = 0L },
                 ),
                 // A modal task: rises from the bottom, and leaves the way it came.
                 enterTransition = { slideInVertically(Motion.standard(0.45f)) { it } + fadeIn() },
@@ -347,17 +349,19 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                 popEnterTransition = { EnterTransition.None },
                 popExitTransition = { slideOutVertically(Motion.standard(0.4f)) { it } + fadeOut() },
             ) { entry ->
+                val noteId = entry.arguments?.getLong("note") ?: 0L
                 val id = entry.arguments?.getLong("id") ?: 0L
                 val day = entry.arguments?.getLong("day")?.takeIf { it != Long.MIN_VALUE }
                 val logHabit by vm.selectedHabit.collectAsStateWithLifecycle()
                 // Build habits log progress, not slips.
-                if (logHabit?.isBuild == true && id == 0L) {
+                if (logHabit?.isBuild == true && id == 0L && noteId == 0L) {
                     com.daymark.app.ui.log.BuildProgressScreen(vm = vm, onClose = { nav.popBackStack() })
                     return@composable
                 }
                 LogScreen(
                     vm = vm,
                     editId = id,
+                    noteId = noteId,
                     initialDate = day,
                     onClose = { nav.popBackStack() },
                     onDeleted = { record ->

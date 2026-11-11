@@ -46,7 +46,7 @@ class BackupV5Test {
 
         val text = BackupCodec.encode(Settings(onboarded = true), habits, relapses, completions = completions, now = at(2026, 3, 1))
         val file = BackupCodec.decode(text)
-        assertEquals(5, file.version)
+        assertEquals(BackupFile.VERSION, file.version)
         assertEquals(3, file.habits[1].completions.size)
 
         val e = BackupCodec.toEntities(file)
@@ -130,6 +130,6 @@ class BackupV5Test {
 
     @Test(expected = InvalidBackupException::class)
     fun `backup newer than v5 is rejected`() {
-        BackupCodec.decode("""{"app":"daymark","version":6,"exportedAt":1,"habits":[{"name":"A","startAt":${at(2026, 1, 1)}}]}""")
+        BackupCodec.decode("""{"app":"daymark","version":7,"exportedAt":1,"habits":[{"name":"A","startAt":${at(2026, 1, 1)}}]}""")
     }
 }

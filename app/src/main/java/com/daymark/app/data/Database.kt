@@ -23,6 +23,7 @@ import com.daymark.app.domain.ReminderConfig
 import com.daymark.app.domain.ReminderMode
 import com.daymark.app.domain.Schedule
 import com.daymark.app.domain.JournalEntry
+import com.daymark.app.domain.NonSlipNote
 import com.daymark.app.domain.RelapseRecord
 import com.daymark.app.domain.UrgeRecord
 import kotlinx.coroutines.flow.Flow
@@ -97,6 +98,22 @@ data class UrgeEntity(
             id = u.id, habitId = u.habitId, timestamp = u.timestamp, intensity = u.intensity.coerceIn(0, 5),
             triggers = u.triggers.joinToString(RelapseEntity.SEP) { it.replace(RelapseEntity.SEP, "/") }, notes = u.notes,
         )
+    }
+}
+
+/** "Not a slip": a note on a day that never counts towards streaks. */
+@Entity(tableName = "notes", indices = [Index("habitId")])
+data class NoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val habitId: Long,
+    val timestamp: Long,
+    val notes: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    fun toNote() = NonSlipNote(id, habitId, timestamp, notes)
+
+    companion object {
+        fun from(n: NonSlipNote) = NoteEntity(id = n.id, habitId = n.habitId, timestamp = n.timestamp, notes = n.notes)
     }
 }
 
@@ -304,6 +321,33 @@ interface UrgeDao {
 }
 
 @Dao
+interface NoteDao {
+    @Query("SELECT * FROM notes ORDER BY timestamp ASC")
+    fun observeAll(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes ORDER BY timestamp ASC")
+    suspend fun getAll(): List<NoteEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: NoteEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<NoteEntity>)
+
+    @Update
+    suspend fun update(entity: NoteEntity)
+
+    @Delete
+    suspend fun delete(entity: NoteEntity)
+
+    @Query("DELETE FROM notes")
+    suspend fun clear()
+
+    @Query("DELETE FROM notes WHERE habitId = :habitId")
+    suspend fun deleteForHabit(habitId: Long)
+}
+
+@Dao
 interface JournalDao {
     @Query("SELECT * FROM journal ORDER BY timestamp ASC")
     fun observeAll(): Flow<List<JournalEntity>>
@@ -393,9 +437,20 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/** v5 → v6: "Not a slip" notes. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `habitId` INTEGER NOT NULL, " +
+                "`timestamp` INTEGER NOT NULL, `notes` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_habitId` ON `notes` (`habitId`)")
+    }
+}
+
 @Database(
-    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class, CompletionEntity::class],
-    version = 5,
+    entities = [RelapseEntity::class, HabitEntity::class, UrgeEntity::class, JournalEntity::class, JournalPhotoEntity::class, CompletionEntity::class, NoteEntity::class],
+    version = 6,
     exportSchema = true,
 )
 abstract class DaymarkDatabase : RoomDatabase() {
@@ -405,9 +460,10 @@ abstract class DaymarkDatabase : RoomDatabase() {
     abstract fun journalDao(): JournalDao
     abstract fun journalPhotoDao(): JournalPhotoDao
     abstract fun completionDao(): CompletionDao
+    abstract fun noteDao(): NoteDao
 
     companion object {
         fun build(context: Context): DaymarkDatabase =
-            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            Room.databaseBuilder(context, DaymarkDatabase::class.java, "daymark.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
     }
 }
