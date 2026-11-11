@@ -108,6 +108,8 @@ fun SettingsScreen(
     vm: MainViewModel,
     contentPadding: PaddingValues,
     onOpenWidgets: () -> Unit = {},
+    onOpenEventNotifications: () -> Unit = {},
+    onOpenEventWidgets: () -> Unit = {},
     onAddHabit: () -> Unit = {},
     onEditHabit: (Habit) -> Unit = {},
 ) {
@@ -271,6 +273,27 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionHeader("Events") }
+        item {
+            Group {
+                val on = listOf(
+                    settings.eventCompleted, settings.eventOneDayBefore, settings.eventOneWeekBefore,
+                    settings.eventEveryDayAfter, settings.eventEveryWeekAfter, settings.eventEveryMonthAfter, settings.eventEveryYearAfter,
+                ).count { it }
+                SettingRow(
+                    Icons.Rounded.NotificationsActive, "Notifications",
+                    if (on == 0) "Off · countdown and time-since alerts" else "$on switched on",
+                    onClick = onOpenEventNotifications,
+                )
+                Divider()
+                SettingRow(
+                    Icons.Rounded.Widgets, "Widgets",
+                    "Refresh every ${settings.widgetRefreshMinutes} min · battery and troubleshooting",
+                    onClick = onOpenEventWidgets,
+                )
+            }
+        }
+
         item { SectionHeader("Home screen & quick access") }
         item {
             Group {
@@ -354,6 +377,12 @@ fun SettingsScreen(
         item {
             Group {
                 SettingRow(Icons.Rounded.Info, "Daymark ${BuildConfigInfo.versionName}", "Made with care. One day at a time.", onClick = null)
+                Divider()
+                SettingRow(
+                    Icons.Rounded.Info, "Font credits",
+                    "Event cards use Inter, Quicksand, Roboto Condensed, Roboto Mono, Roboto Flex, Libre Baskerville, Gloock and Merienda (SIL Open Font License 1.1), plus Roboto Slab and Permanent Marker (Apache License 2.0).",
+                    onClick = null,
+                )
             }
         }
     }
@@ -465,15 +494,15 @@ private fun AccentDot(accent: Accent, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Group(content: @Composable () -> Unit) {
+internal fun Group(content: @Composable () -> Unit) {
     DaymarkCard(contentPadding = 0.dp) { content() }
 }
 
 @Composable
-private fun Divider() = HorizontalDivider(Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outlineVariant)
+internal fun Divider() = HorizontalDivider(Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
-private fun SettingRow(
+internal fun SettingRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -498,7 +527,7 @@ private fun SettingRow(
 }
 
 @Composable
-private fun SwitchRow(
+internal fun SwitchRow(
     icon: ImageVector,
     title: String,
     subtitle: String,

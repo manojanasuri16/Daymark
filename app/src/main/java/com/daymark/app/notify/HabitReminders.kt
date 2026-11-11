@@ -246,7 +246,10 @@ class HabitBootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         val app = context.applicationContext
         app.container.appScope.launch {
-            try { runCatching { HabitReminders.rescheduleAll(app) } } finally { pending.finish() }
+            try {
+                runCatching { HabitReminders.rescheduleAll(app) }
+                runCatching { EventNotifications.reschedule(app) }
+            } finally { pending.finish() }
         }
     }
 }

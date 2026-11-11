@@ -58,6 +58,7 @@ notify/
   Reminders.kt      Routes (deep-link extras), local check-in + milestone notifications (WorkManager), discreet text
   HabitReminders.kt + ReminderPlanner.kt  build-habit reminders: one inexact setAndAllowWhileIdle alarm per habit (no exact-alarm permission), next slot only, pure planner; notification actions +step/Done, Snooze 15, Skip; boot/time-change receiver
   UrgeTileService.kt  Quick Settings tile → urge screen
+  EventNotifications.kt  event alerts (channel "Events"): WorkManager one-shot for ONLY the next due notification, planned by domain/EventNotificationPlanner (pure: EventEngine.notificationTimes + Settings.notifies, 60 min grace so nothing floods, one per event/moment with the biggest unit winning, sent keys remembered in prefs). Re-planned in DaymarkApp (debounced events+switches flow) and in HabitBootReceiver (boot/TIME_SET/TZ/package replaced). No exact alarms. Respects per-event showNameOutside (generic "An event ..." text). Tap -> Routes.event(id)
 DaymarkApp.kt       AppContainer (manual DI), runs the legacy migration, refreshes widgets on data change
 ui/
   MainActivity.kt   FragmentActivity (needed by BiometricPrompt). Gate: LOCKED/ONBOARDING/LOADING/APP. NavHost + routes
@@ -101,6 +102,8 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - **Entry points:** shortcuts (`res/xml/shortcuts.xml`), the QS tile and notifications open `MainActivity` with `Routes.EXTRA`; `DaymarkNav` navigates once unlocked.
 - **App lock** re-locks after more than 20 s in the background (`LOCK_GRACE_MS`), so file pickers for backup don't force a re-unlock.
 - **Build habits:** `Habit.isBuild`. Progress is a `completions` row per habit per day (amount in the goal unit; goal 0 = check-off). Screens branch on kind (`BuildDashboard`, `BuildCalendar`, `BuildInsightsScreen`, `BuildProgressScreen`); `MainViewModel.stats` maps build streaks into `StreakStats` so streak-shaped UI and widgets still work. Kind can't be changed after creation. Never run break-habit maths (StreakEngine/relapses) on a build habit.
+
+- **Event settings:** Settings > Events has Notifications (7 switches, POST_NOTIFICATIONS asked when the first one is switched on, hint card if blocked) and Widgets (refresh 15/30 min, precision countdown, battery button, help text), in `ui/settings/EventSettingsScreens.kt`, routes `events_notifications` / `events_widgets`. Font credits are in the About card. Wave 5b adds "Import from calendar".
 
 ## Recipes
 

@@ -327,6 +327,8 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                 SettingsScreen(
                     vm, padding,
                     onOpenWidgets = { nav.navigate("widgets") },
+                    onOpenEventNotifications = { nav.navigate("events_notifications") },
+                    onOpenEventWidgets = { nav.navigate("events_widgets") },
                     onAddHabit = { nav.navigate(habitRoute()) },
                     onEditHabit = { nav.navigate(habitRoute(it.id)) },
                 )
@@ -351,6 +353,16 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     onClose = { nav.popBackStack() },
                 )
             }
+            composable(
+                "events_notifications",
+                enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },
+                popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
+            ) { com.daymark.app.ui.settings.EventNotificationsScreen(vm, onBack = { nav.popBackStack() }) }
+            composable(
+                "events_widgets",
+                enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },
+                popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
+            ) { com.daymark.app.ui.settings.EventWidgetSettingsScreen(vm, onBack = { nav.popBackStack() }) }
             composable(
                 "widgets",
                 enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },

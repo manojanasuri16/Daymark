@@ -61,6 +61,14 @@ class DaymarkApp : Application() {
                 runCatching { com.daymark.app.notify.HabitReminders.rescheduleAll(this@DaymarkApp) }
             }
         }
+        // Event notifications: plan the next one on start and whenever events or the notification switches change.
+        container.appScope.launch {
+            combine(container.events.events, container.settings.settings) { e, s ->
+                listOf(e, s.eventCompleted, s.eventOneDayBefore, s.eventOneWeekBefore, s.eventEveryDayAfter, s.eventEveryWeekAfter, s.eventEveryMonthAfter, s.eventEveryYearAfter)
+            }.distinctUntilChanged().debounce(500).collect {
+                runCatching { com.daymark.app.notify.EventNotifications.reschedule(this@DaymarkApp) }
+            }
+        }
     }
 }
 
