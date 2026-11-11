@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — 2026-11-11 (versionCode 8)
+
+• New "Not a slip" option when logging: save an involuntary or not-a-slip moment as a private note that never touches your streak
+• Notes show on the Calendar with a small dot on that day
+• Included in backups; older backups still restore
+• All existing habits, slips and history are untouched
+
+
 ## 1.4.0 — 2026-11-10 (versionCode 7)
 
 • Build habits, not just break them: drink water, read, work out, meditate, walk and more
