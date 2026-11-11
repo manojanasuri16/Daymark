@@ -26,6 +26,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.core.snap
+import com.daymark.app.ui.theme.LocalReducedMotion
+import com.daymark.app.widget.HintSession
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -141,16 +145,21 @@ fun DashboardScreen(
 
     // "Add to home screen": long-press a tracker's circle or chip (or use the header button).
     var sheetHabitId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val tipViews = settings?.homeTipViews
-    LaunchedEffect(tipViews != null) {
-        tipViews?.let { v -> if (v >= 0 && WidgetOffer.nextTipViews(v) != v) vm.setHomeTipViews(WidgetOffer.nextTipViews(v)) }
-    }
-    val showTip = tipViews != null && WidgetOffer.shouldShowTip(tipViews) && sheetHabitId == null
-    LaunchedEffect(showTip) {
-        if (showTip) { delay(6_000); vm.setHomeTipViews(WidgetOffer.TIP_DONE) }
+    val hintShows = settings?.homeHintShows
+    var showTip by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(hintShows != null) {
+        if (hintShows != null) HintSession.process.start(hintShows)?.let { next ->
+            vm.setHomeHintShows(next)
+            showTip = true
+            delay(WidgetOffer.HINT_VISIBLE_MS)
+            showTip = false
+            HintSession.process.finish()
+        }
     }
     fun openAddToHome(id: Long) {
-        if (tipViews != null && tipViews >= 0) vm.setHomeTipViews(WidgetOffer.TIP_DONE)
+        HintSession.process.finish()
+        showTip = false
+        if (hintShows != WidgetOffer.HINT_DONE) vm.setHomeHintShows(WidgetOffer.HINT_DONE)
         sheetHabitId = id
     }
     val sheetHabit = overview.firstOrNull { it.habit.id == sheetHabitId }?.habit
@@ -380,9 +389,10 @@ private fun HeroCard(stats: StreakStats, showTip: Boolean, onAddToHome: () -> Un
             .fillMaxWidth()
             .clip(RoundedCornerShape(32.dp))
             .background(Brush.verticalGradient(listOf(colors.heroGradientTop, colors.heroGradientBottom)))
-            .padding(vertical = 28.dp, horizontal = 20.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 40.dp),
         contentAlignment = Alignment.Center,
     ) {
+        HomeHint(showTip, Modifier.align(Alignment.BottomCenter).offset(y = 26.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier.size(248.dp).pressScale(ringSrc, 0.98f).clip(CircleShape).combinedClickable(
@@ -416,7 +426,6 @@ private fun HeroCard(stats: StreakStats, showTip: Boolean, onAddToHome: () -> Un
                     )
                 }
             }
-            HomeTip(showTip)
             Spacer(Modifier.height(16.dp))
             Text(
                 if (next == null) "Every milestone reached. Extraordinary."
@@ -724,22 +733,21 @@ private fun ReasonsCard(reasons: List<String>, today: LocalDate, onAdd: () -> Un
     }
 }
 
-/** One-time hint under the circle; the dashboard hides it after ~6 s or once the sheet is opened. */
+/**
+ * Quiet hint drawn over the hero card's bottom padding, so nothing in the layout moves.
+ * Fades (and drifts up a few dp) in; under reduced motion it just appears. The dashboard hides it after ~8 s.
+ */
 @Composable
-internal fun HomeTip(visible: Boolean) {
-    androidx.compose.animation.AnimatedVisibility(
-        visible = visible,
-        enter = androidx.compose.animation.fadeIn(Motion.standard()) + androidx.compose.animation.expandVertically(Motion.standard()),
-        exit = androidx.compose.animation.fadeOut(Motion.standard()) + androidx.compose.animation.shrinkVertically(Motion.standard()),
+internal fun HomeHint(visible: Boolean, modifier: Modifier = Modifier) {
+    val reduced = LocalReducedMotion.current
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, if (reduced) snap() else Motion.gentle(), label = "hintAlpha")
+    if (alpha <= 0.01f && !visible) return
+    Row(
+        modifier.graphicsLayer { this.alpha = alpha; translationY = (1f - alpha) * 6.dp.toPx() },
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.padding(top = 14.dp)) {
-            Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.18f)) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.TouchApp, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Tip: long-press to add to home screen", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.92f))
-                }
-            }
-        }
+        Icon(Icons.Rounded.TouchApp, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(5.dp))
+        Text("Hold the circle to add it to your home screen", style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp), color = Color.White.copy(alpha = 0.7f))
     }
 }

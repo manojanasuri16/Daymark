@@ -65,6 +65,8 @@ data class Settings(
     val batteryNagDismissed: Boolean = false,
     /** Dashboard opens counted toward the one-time "long-press to add to home screen" tip; -1 = tip finished. */
     val homeTipViews: Int = 0,
+    /** Sessions the "hold the circle" hint has been shown in (max 5); -1 = learned (sheet opened). Not exported in backups. */
+    val homeHintShows: Int = 0,
 ) {
     /** Is the notification of this [type] switched on? */
     fun notifies(type: NotifType): Boolean = when (type) {
@@ -115,6 +117,7 @@ class SettingsRepository(private val context: Context) {
         val eventEveryYearAfter = booleanPreferencesKey("notif_every_year_after")
         val batteryNagDismissed = booleanPreferencesKey("battery_nag_dismissed")
         val homeTipViews = intPreferencesKey("home_tip_views")
+        val homeHintShows = intPreferencesKey("home_hint_shows")
 
         fun notif(type: NotifType) = when (type) {
             NotifType.COMPLETED -> eventCompleted
@@ -165,6 +168,7 @@ class SettingsRepository(private val context: Context) {
         eventEveryYearAfter = this[Keys.eventEveryYearAfter] ?: false,
         batteryNagDismissed = this[Keys.batteryNagDismissed] ?: false,
         homeTipViews = this[Keys.homeTipViews] ?: 0,
+        homeHintShows = this[Keys.homeHintShows] ?: 0,
     )
 
     suspend fun completeOnboarding(firstHabitId: Long) = context.dataStore.edit {
@@ -214,6 +218,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setEventNotification(type: NotifType, on: Boolean) = context.dataStore.edit { it[Keys.notif(type)] = on }
     suspend fun setBatteryNagDismissed(v: Boolean) = context.dataStore.edit { it[Keys.batteryNagDismissed] = v }
     suspend fun setHomeTipViews(v: Int) = context.dataStore.edit { it[Keys.homeTipViews] = v }
+    suspend fun setHomeHintShows(v: Int) = context.dataStore.edit { it[Keys.homeHintShows] = v }
 
     suspend fun replaceAll(s: Settings) = context.dataStore.edit {
         it[Keys.onboarded] = s.onboarded
@@ -249,6 +254,7 @@ class SettingsRepository(private val context: Context) {
         it[Keys.eventEveryYearAfter] = s.eventEveryYearAfter
         it[Keys.batteryNagDismissed] = s.batteryNagDismissed
         it[Keys.homeTipViews] = s.homeTipViews
+        it[Keys.homeHintShows] = s.homeHintShows
     }
 
     suspend fun clear() = context.dataStore.edit { it.clear() }

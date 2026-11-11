@@ -243,7 +243,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setWidgetRefreshMinutes(v: Int) = viewModelScope.launch { c.settings.setWidgetRefreshMinutes(v) }
     fun setPrecisionCountdown(v: Boolean) = viewModelScope.launch { c.settings.setPrecisionCountdown(v) }
     fun setEventNotification(type: NotifType, on: Boolean) = viewModelScope.launch { c.settings.setEventNotification(type, on) }
-    fun setHomeTipViews(v: Int) = viewModelScope.launch { c.settings.setHomeTipViews(v) }
+    fun setHomeHintShows(v: Int) = viewModelScope.launch { c.settings.setHomeHintShows(v) }
     fun setBatteryNagDismissed(v: Boolean) = viewModelScope.launch { c.settings.setBatteryNagDismissed(v) }
 
     fun saveRelapse(record: RelapseRecord) = viewModelScope.launch { c.relapses.save(record) }

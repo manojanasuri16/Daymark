@@ -20,8 +20,33 @@ object WidgetOffer {
 
     const val TIP_DONE = -1
 
+    /** Quiet "hold the circle" hint: shown in at most [HINT_MAX_SESSIONS] app sessions, then never again (also once the sheet was opened). */
+    const val HINT_MAX_SESSIONS = 5
+    const val HINT_DONE = -1
+    const val HINT_VISIBLE_MS = 8_000L
+    fun shouldShowHint(shows: Int): Boolean = shows in 0 until HINT_MAX_SESSIONS
+    fun nextHintShows(shows: Int): Int = if (shows < 0) shows else minOf(shows + 1, HINT_MAX_SESSIONS)
+
     /** Button label, e.g. "Add Streak widget". */
     fun buttonLabel(kind: WidgetKind): String = "Add ${kind.title} widget"
+}
+
+/** Decides once per process whether the hint is shown, so tab returns and recompositions never count or re-show it. */
+class HintSession {
+    private var started = false
+    private var finished = false
+
+    /** Returns the new stored count when this session shows the hint, or null when it must not (already decided, used up, or learned). */
+    fun start(shows: Int): Int? {
+        if (started) return null
+        started = true
+        return if (shouldShow(shows)) WidgetOffer.nextHintShows(shows) else null
+    }
+    private fun shouldShow(shows: Int) = WidgetOffer.shouldShowHint(shows)
+    fun finish() { finished = true }
+    val isFinished: Boolean get() = finished
+
+    companion object { val process = HintSession() }
 }
 
 /** The one place that asks the launcher to pin a tracker widget already bound to a tracker (gallery and sheet). */

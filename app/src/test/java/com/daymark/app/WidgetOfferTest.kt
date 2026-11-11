@@ -31,4 +31,32 @@ class WidgetOfferTest {
     }
 
     @Test fun buttonLabelNamesTheKind() = assertEquals("Add Streak widget", WidgetOffer.buttonLabel(WidgetKind.STREAK))
+
+    @Test fun hintShowsInUpToFiveSessionsThenStops() {
+        for (n in 0..4) assertTrue(WidgetOffer.shouldShowHint(n))
+        assertFalse(WidgetOffer.shouldShowHint(5))
+        assertFalse(WidgetOffer.shouldShowHint(WidgetOffer.HINT_DONE))
+        assertEquals(5, WidgetOffer.nextHintShows(4))
+        assertEquals(5, WidgetOffer.nextHintShows(5))
+        assertEquals(WidgetOffer.HINT_DONE, WidgetOffer.nextHintShows(WidgetOffer.HINT_DONE))
+    }
+
+    @Test fun hintCountsOncePerSession() {
+        val s = com.daymark.app.widget.HintSession()
+        assertEquals(1, s.start(0))
+        assertEquals(null, s.start(1)) // tab return / recomposition: no second count
+        val used = com.daymark.app.widget.HintSession()
+        assertEquals(null, used.start(5))
+        val learned = com.daymark.app.widget.HintSession()
+        assertEquals(null, learned.start(WidgetOffer.HINT_DONE))
+        assertEquals(5, com.daymark.app.widget.HintSession().start(4))
+    }
+
+    @Test fun finishingStopsTheSession() {
+        val s = com.daymark.app.widget.HintSession()
+        s.start(0)
+        assertFalse(s.isFinished)
+        s.finish()
+        assertTrue(s.isFinished)
+    }
 }

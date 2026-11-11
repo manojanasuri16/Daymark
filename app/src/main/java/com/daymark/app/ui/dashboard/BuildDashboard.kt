@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -251,9 +252,10 @@ private fun BuildHero(
             .fillMaxWidth()
             .clip(RoundedCornerShape(32.dp))
             .background(Brush.verticalGradient(listOf(colors.heroGradientTop, colors.heroGradientBottom)))
-            .padding(vertical = 28.dp, horizontal = 20.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 40.dp),
         contentAlignment = Alignment.Center,
     ) {
+        HomeHint(showTip, Modifier.align(Alignment.BottomCenter).offset(y = 26.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             val ringMod = Modifier.size(224.dp).semantics { contentDescription = summary }
             val ringSrc = remember { MutableInteractionSource() }
@@ -296,7 +298,6 @@ private fun BuildHero(
                     )
                 }
             }
-            HomeTip(showTip)
             Spacer(Modifier.height(16.dp))
             AnimatedText(stateLine, MaterialTheme.typography.titleMedium, color = Color.White)
             Spacer(Modifier.height(16.dp))

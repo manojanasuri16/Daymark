@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.daymark.app.ui.MainViewModel
 import com.daymark.app.ui.components.DaymarkCard
@@ -95,6 +96,14 @@ fun WidgetGalleryScreen(vm: MainViewModel, onBack: () -> Unit, onMessage: (Strin
                         "it shows ${habit?.let { "${it.emoji} ${it.displayName}" } ?: "your tracker"}. Long-press a placed widget to restyle it or switch tracker.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+            item {
+                Text(
+                    "Tip: you can also hold a tracker's circle on Today to add it here.",
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
