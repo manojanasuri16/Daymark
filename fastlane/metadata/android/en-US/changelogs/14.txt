@@ -1,0 +1,3 @@
+New in 1.6.4:
+• Widgets now stay on the tracker you set them up for: switching trackers inside the app no longer changes what an existing widget shows
+• Older widgets that had lost their tracker are pinned to the one they currently show (long-press, Settings, to pick a different one)

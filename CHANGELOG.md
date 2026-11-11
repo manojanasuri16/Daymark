@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.4 — 2026-11-11 (versionCode 14)
+
+• Widgets now stay on the tracker you set them up for: switching trackers inside the app no longer changes what an existing widget shows
+• Older widgets that had lost their tracker are pinned to the one they currently show (long-press, Settings, to pick a different one)
+
+
 ## 1.6.3 — 2026-11-11 (versionCode 13)
 
 • Fixed the widget previews showing "Can't load widget" or "Couldn't add widget" in some launchers (Streak and Event)
