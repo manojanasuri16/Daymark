@@ -51,10 +51,12 @@ ACHIEVEMENTS
 CALENDAR
 • A swipeable month view: clean days in green, slips in red, untracked days in grey
 • Tap any day to see details, or to log or edit a slip
+• Notes you save as "Not a slip" appear on their day with a small dot
 
 LOG A SLIP, LEARN FROM IT
 • Record the date, time, mood, triggers, situation and notes
 • Edit or delete entries, and undo a delete
+• Choose "Not a slip" to log an involuntary or not-a-slip moment as a note that never touches your streak
 • Slips are information, not judgment
 
 INSIGHTS

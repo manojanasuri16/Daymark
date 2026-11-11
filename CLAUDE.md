@@ -39,16 +39,16 @@ Builds are slow on this machine (5–10 min, longer while the emulator runs). Ru
 domain/     Pure Kotlin, no Android. Unit-tested in app/src/test/.../StreakEngineTest.kt
   StreakEngine.kt   spans between events, current/longest streak, total clean days, DayStatus, slipTimestamps (cut-down mode)
   Milestones.kt     12 milestones; earned() uses the LONGEST streak (so they're never lost)
-  Insights.kt       RelapseRecord, Habit (money, dailyLimit, reasons), UrgeRecord, JournalEntry, InsightsEngine (+ urges)
+  Insights.kt       NonSlipNote ("Not a slip" note), RelapseRecord, Habit (money, dailyLimit, reasons), UrgeRecord, JournalEntry, InsightsEngine (+ urges)
   Messages.kt       motivational copy; forDate() is stable per day (app + widgets agree)
   Build.kt          HabitKind, Schedule (weekday bitmask), ReminderConfig, BuildEngine (streak over scheduled days; rest days and a pending today never break it), BuildStats, Completion
   BuildInsights.kt  weekday stats / streak runs for build habits
   Options.kt        triggers, build presets, situations, moods, tracker emojis and suggestions
 data/
-  Database.kt       Room v5: habits (kind, goal, schedule, reminder columns), relapses, urges, journal, journal_photos, completions (one row per habit per day); DAOs; MIGRATION_1_2 … MIGRATION_4_5
-  Repository.kt     Relapse/Habit/Urge/JournalRepository (ensureLegacyHabit = v1→v2 data upgrade)
+  Database.kt       Room v6: habits (kind, goal, schedule, reminder columns), relapses, urges, journal, journal_photos, completions (one row per habit per day), notes (`NoteEntity`, "Not a slip"); DAOs (incl. `NoteDao`); MIGRATION_1_2 … MIGRATION_5_6
+  Repository.kt     Relapse/Habit/Urge/Journal/NoteRepository (ensureLegacyHabit = v1→v2 data upgrade)
   SettingsRepository.kt  DataStore prefs → Settings (theme, accent, selectedHabitId, app lock, discreet, reminders, auto-backup…)
-  Backup.kt         JSON export/import, format v5 (habits with nested completions, with nested relapses/urges/journal, journal photos as base64); reads v1–v4. BackupCrypto = optional AES-GCM password
+  Backup.kt         JSON export/import, format v6 (habits with nested completions and notes, with nested relapses/urges/journal, journal photos as base64); reads v1–v5. BackupCrypto = optional AES-GCM password
   PhotoStore.kt     journal photos: files/journal_photos/<uuid>.jpg (≤1600 px, re-encoded), thumbnails, base64, orphan sweep
   AutoBackup.kt     BackupWriter + daily SAF-folder backups (WorkManager), keeps the last 7
 notify/
@@ -81,6 +81,7 @@ Data flow: Room/DataStore `Flow` → `MainViewModel` `StateFlow` → screens use
 - A **streak** runs from the tracker's `startAt` (or an earlier logged slip) to the next slip. Future-dated slips are ignored. **Total clean days** is the number of calendar days from start to today with no slip.
 - **Day status** colours: `CLEAN` is green, `RELAPSE` is red, `UNTRACKED` is grey. These are semantic colours and don't follow the accent.
 - **Widgets:** the live h:m:s is a system `Chronometer` embedded via `AndroidRemoteViews` (`res/layout/widget_chronometer.xml`), so it ticks without waking the app. Each widget stores its style and tracker in Glance state (`StyleKey`, `HabitKey`). A new widget claims `WidgetDefaults` on its first render.
+- **"Not a slip" notes:** the Log screen has a Slip / Not a slip choice. Not-a-slip entries are `NonSlipNote`s in the `notes` table (`NoteRepository`), shown on the Calendar as a "📝 time · Not a slip" card plus a dot on the day. They are NEVER fed into `StreakEngine`, stats or insights, so the streak is unaffected.
 - **Cut-down mode:** a tracker with `dailyLimit > 0` counts every entry as a "use"; only the entry that takes a day over the limit is a slip. Always pass entry times through `Habit.slipTimes()` before `StreakEngine`.
 - **Discreet mode** (on by default): widgets, notifications, the QS tile and share cards never name a tracker (`WidgetSnapshot.habit` is blank, reasons hidden). Keep it that way for any new surface outside the app.
 - **Journal photos** are files; the DB only stores their names. Deleting an entry deletes its files, and `PhotoStore.sweep()` (at app start and after a restore) removes any file no row references, e.g. after a tracker is deleted. Files younger than an hour are never swept (an entry may still be open).
