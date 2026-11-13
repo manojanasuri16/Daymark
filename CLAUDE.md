@@ -4,7 +4,7 @@ Daymark is a private, offline-first Android app for building good habits and bre
 
 ## Non-negotiables
 
-- **Privacy:** never add the `INTERNET` permission, analytics, crash SDKs, ads or accounts. Data lives only on the device. The store listing, privacy policy and Data-safety form all promise this.
+- **Privacy:** never add the `INTERNET` permission, analytics, crash SDKs, ads or accounts. Data lives only on the device. The store listing and the README privacy section both promise this.
 - **Tone:** say "slip", never "failure" or "relapse" in UI copy. Keep it supportive and non-judgmental. A slip must never erase history: longest streak, total clean days and achievements are always kept.
 - **Permissions:** `READ_CALENDAR` is the only permission beyond notifications and boot-completed. It is optional, declared for the one-time "Import from calendar" feature (`ui/events/EventImportScreen.kt`) and must only ever be requested at runtime after the user taps that row, behind a rationale card. Never read the calendar in the background or write to it.
 - **Distribution is AppDrop only** (`appdrop.json`, `appdrop/`, APKs from GitHub Releases). No Play Store work.

@@ -55,6 +55,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 
 ## Private by design
 - Works fully offline. Your data never leaves the device
+- Open source (MIT), so you can check every privacy claim in the code
 - Discreet mode (on by default): widgets, notifications and share cards never name what you track
 - Optional app lock with fingerprint, face or device PIN, handled by Android
 - Optional "hide in recents" blanks the app preview and blocks screenshots
@@ -66,5 +67,8 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 - Backup and restore with a JSON file you control, optionally protected with a password (AES-256-GCM)
 - Optional automatic daily backups to a folder you choose, keeping the last seven
 - Android cloud backup is turned off
+
+## Open source
+Daymark is free and open source under the MIT licence. Read the code, report an issue or build it yourself at github.com/manojanasuri16/Daymark.
 
 Daymark is a self-tracking tool. It is not a medical service and is not a substitute for professional help. If you are struggling, please consider reaching out to a doctor, counselor or support service in your area.

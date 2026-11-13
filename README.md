@@ -13,7 +13,7 @@
   <a href="https://appdrop-store.vercel.app/apps/daymark"><b>Get it on AppDrop</b></a> ·
   <a href="https://appdrop-store.vercel.app/d/daymark">Direct APK download</a> ·
   <a href="../../releases/latest">Latest release</a> ·
-  <a href="docs/privacy-policy.md">Privacy policy</a>
+  <a href="LICENSE">MIT licence</a>
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ Every day you mark is a day you made. A slip or a missed day never erases what y
 - Backups are a JSON file you control, optionally password-protected (AES-256-GCM, PBKDF2 key). Optional automatic daily backups go to a folder you pick, keeping the last seven.
 - The only extra permissions are notifications for reminders you switch on, and an optional calendar read (`READ_CALENDAR`) that is requested only when you tap "Import from calendar".
 
-Read the full [privacy policy](docs/privacy-policy.md).
+Because the code is open, you can check every one of these claims yourself.
 
 ## Install
 
@@ -82,11 +82,15 @@ A single module with manual dependency injection. All streak, milestone, event a
 - [docs/MAINTAINING.md](docs/MAINTAINING.md): step-by-step guides (ship an update, test on an emulator or phone, library updates, key safety).
 - [CLAUDE.md](CLAUDE.md): architecture, rules and recipes for working on the code with an AI assistant.
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version.
-- [docs/privacy-policy.md](docs/privacy-policy.md): the privacy policy.
+- [third_party/FONTS.md](third_party/FONTS.md): the bundled fonts and their licences.
 
 ## Feedback
 
-Found a bug or have an idea? [Open an issue](../../issues). Please don't paste personal data into issues.
+Found a bug or have an idea? [Open an issue](../../issues), or email manojanasuri16@gmail.com. Please don't paste personal data into issues.
+
+## Licence
+
+Daymark is open source under the [MIT licence](LICENSE): you are free to use, copy, modify and share it. The bundled fonts keep their own open licences (SIL Open Font License 1.1 or Apache 2.0), included in [third_party/licenses](third_party/licenses) and listed in [third_party/FONTS.md](third_party/FONTS.md).
 
 ---
 

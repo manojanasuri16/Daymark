@@ -18,4 +18,4 @@ Variable fonts keep their weight axis only (other axes pinned; Roboto Flex is pi
 | marker | Permanent Marker | Apache 2.0 | https://github.com/google/fonts/tree/main/apache/permanentmarker |
 
 SIL Open Font License 1.1: https://openfontlicense.org. Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0.
-Credit these families in the in-app About screen.
+Credit these families in the in-app About screen. The full licence text for each family is in `third_party/licenses/` (OFL requires it to travel with the fonts).

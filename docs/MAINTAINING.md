@@ -15,7 +15,7 @@ This guide is for coming back to the project after a long break. Each section is
 | Release notes shown on GitHub | `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` |
 | History of changes | `CHANGELOG.md` |
 | AppDrop listing (text, icon, screenshots) | `appdrop.json` and `appdrop/` |
-| Privacy policy | `docs/privacy-policy.md` |
+| Licence (MIT) | `LICENSE`; bundled font licences in `third_party/` |
 | Signing key (**not in the repo**) | `~/.config/daymark/release.jks` + passwords in `~/.gradle/gradle.properties` |
 | Android SDK | `~/android-sdk` |
 | Automation | `.github/workflows/` (`build.yml` runs on every push to `main`; `release.yml` runs on version tags) |
