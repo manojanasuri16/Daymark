@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-11-21 (versionCode 18)
+
+• Lock entries now asks for your fingerprint every time you open the Calendar, even when app lock is on
+• Tracker tiles on Today each have their own colour, and show a letter when trackers share an emoji
+
+
 ## 1.8.0 — 2026-11-21 (versionCode 17)
 
 • Today now shows all your trackers at once as tiles. Tap one to open its full page, hold one to add it to your home screen
