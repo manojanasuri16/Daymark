@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
@@ -326,6 +327,12 @@ fun SettingsScreen(
                     if (canLock) "Require fingerprint, face or screen lock" else "Set up a screen lock on your device first",
                     settings.appLock && canLock, enabled = canLock,
                 ) { vm.setAppLock(it) }
+                Divider()
+                SwitchRow(
+                    Icons.Rounded.Lock, "Lock entries",
+                    if (canLock) "Ask for fingerprint before showing slips, urges and journal" else "Set up a screen lock on your device first",
+                    settings.lockEntries && canLock, enabled = canLock,
+                ) { vm.setLockEntries(it) }
                 Divider()
                 SwitchRow(Icons.Rounded.VisibilityOff, "Hide in recent apps", "Blank the app preview and block screenshots", settings.hideInRecents) {
                     vm.setHideInRecents(it)

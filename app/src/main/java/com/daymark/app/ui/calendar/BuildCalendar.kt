@@ -90,6 +90,7 @@ internal fun BuildCalendarScreen(
 ) {
     val completions by vm.completions.collectAsStateWithLifecycle()
     val journal by vm.journal.collectAsStateWithLifecycle()
+    val buildSettings by vm.settings.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
     val journalDays = remember(journal) { journal.map { java.time.Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() }.toSet() }
     val today = LocalDate.now()
@@ -227,7 +228,9 @@ internal fun BuildCalendarScreen(
             }
         }
         val dayJournal = journal.filter { java.time.Instant.ofEpochMilli(it.timestamp).atZone(zone).toLocalDate() == selected }.sortedBy { it.timestamp }
-        items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
+        val journalLocked = buildSettings?.lockEntries == true && !com.daymark.app.ui.lock.EntryLock.unlocked
+        if (journalLocked && dayJournal.isNotEmpty()) item("locked") { com.daymark.app.ui.lock.LockedEntriesCard(dayJournal.size) }
+        else items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
         if (!selected.isAfter(today)) {
             item("journalDay") {
                 OutlinedButton(

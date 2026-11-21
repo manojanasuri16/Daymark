@@ -108,7 +108,10 @@ class MainActivity : FragmentActivity() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) { backgroundedAt = SystemClock.elapsedRealtime() }
             override fun onStart(owner: LifecycleOwner) {
-                if (backgroundedAt != 0L && SystemClock.elapsedRealtime() - backgroundedAt > LOCK_GRACE_MS) locked = true
+                if (backgroundedAt != 0L && SystemClock.elapsedRealtime() - backgroundedAt > LOCK_GRACE_MS) {
+                    locked = true
+                    com.daymark.app.ui.lock.EntryLock.unlocked = false
+                }
             }
         })
 
@@ -137,7 +140,7 @@ class MainActivity : FragmentActivity() {
                             label = "gate",
                         ) { gate ->
                             when (gate) {
-                                Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
+                                Gate.LOCKED -> LockScreen(onUnlocked = { locked = false; com.daymark.app.ui.lock.EntryLock.unlocked = true })
                                 Gate.ONBOARDING -> OnboardingScreen { habit -> vm.completeOnboarding(habit) }
                                 Gate.LOADING -> Box(Modifier.fillMaxSize())
                                 Gate.APP -> DaymarkNav(vm, s, pendingRoute) { pendingRoute = null }
@@ -176,6 +179,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     SETTINGS("settings", "Settings", Icons.Rounded.Settings),
 }
 
+private const val TRACKER_ROUTE = "tracker"
 private const val HABIT_ROUTE = "habit?id={id}"
 private fun habitRoute(id: Long = 0) = "habit?id=$id"
 
@@ -260,6 +264,15 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
             popExitTransition = { fadeOut(tween(120)) },
         ) {
             composable(Tab.TODAY.route) {
+                val overview by vm.overview.collectAsStateWithLifecycle()
+                if (overview.size > 1) {
+                    com.daymark.app.ui.dashboard.TrackersHome(
+                        vm, padding,
+                        onOpen = { vm.selectHabit(it.id); nav.navigate(TRACKER_ROUTE) { launchSingleTop = true } },
+                        onAddHabit = { nav.navigate(habitRoute()) },
+                    )
+                    return@composable
+                }
                 DashboardScreen(
                     vm, padding,
                     onLogSlip = { nav.navigate(logRoute()) },
@@ -268,6 +281,22 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
                     onOpenCalendar = { selectTab(Tab.CALENDAR) },
                     onAddHabit = { nav.navigate(habitRoute()) },
                     onEditHabit = { nav.navigate(habitRoute(it.id)) },
+                )
+            }
+            composable(
+                TRACKER_ROUTE,
+                enterTransition = { slideInHorizontally(Motion.standard()) { it } + fadeIn() },
+                popExitTransition = { slideOutHorizontally(Motion.standard()) { it } + fadeOut() },
+            ) {
+                DashboardScreen(
+                    vm, padding,
+                    onLogSlip = { nav.navigate(logRoute()) },
+                    onUrge = { nav.navigate(urgeRoute()) },
+                    onJournal = { nav.navigate(journalRoute()) },
+                    onOpenCalendar = { selectTab(Tab.CALENDAR) },
+                    onAddHabit = { nav.navigate(habitRoute()) },
+                    onEditHabit = { nav.navigate(habitRoute(it.id)) },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(Tab.CALENDAR.route) {

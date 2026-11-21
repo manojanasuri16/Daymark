@@ -28,6 +28,8 @@ data class Settings(
     val dynamicColor: Boolean = false,
     val appLock: Boolean = false,
     val hideInRecents: Boolean = false,
+    /** Fingerprint/screen lock before slips, urges, notes and journal entries are shown. */
+    val lockEntries: Boolean = false,
     val haptics: Boolean = true,
     /** 0 = first tracker. */
     val selectedHabitId: Long = 0L,
@@ -91,6 +93,7 @@ class SettingsRepository(private val context: Context) {
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val appLock = booleanPreferencesKey("app_lock")
         val hideInRecents = booleanPreferencesKey("hide_in_recents")
+        val lockEntries = booleanPreferencesKey("lock_entries")
         val haptics = booleanPreferencesKey("haptics")
         val selectedHabit = longPreferencesKey("selected_habit")
         val accent = stringPreferencesKey("accent")
@@ -142,6 +145,7 @@ class SettingsRepository(private val context: Context) {
         dynamicColor = this[Keys.dynamicColor] ?: false,
         appLock = this[Keys.appLock] ?: false,
         hideInRecents = this[Keys.hideInRecents] ?: false,
+        lockEntries = this[Keys.lockEntries] ?: false,
         haptics = this[Keys.haptics] ?: true,
         selectedHabitId = this[Keys.selectedHabit] ?: 0L,
         accent = this[Keys.accent] ?: "dusk",
@@ -185,6 +189,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDynamicColor(v: Boolean) = context.dataStore.edit { it[Keys.dynamicColor] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.appLock] = v }
     suspend fun setHideInRecents(v: Boolean) = context.dataStore.edit { it[Keys.hideInRecents] = v }
+    suspend fun setLockEntries(v: Boolean) = context.dataStore.edit { it[Keys.lockEntries] = v }
     suspend fun setHaptics(v: Boolean) = context.dataStore.edit { it[Keys.haptics] = v }
     suspend fun setDiscreet(v: Boolean) = context.dataStore.edit { it[Keys.discreet] = v }
     suspend fun setCheckInReminder(enabled: Boolean, minutes: Int) = context.dataStore.edit {
@@ -228,6 +233,7 @@ class SettingsRepository(private val context: Context) {
         it[Keys.dynamicColor] = s.dynamicColor
         it[Keys.appLock] = s.appLock
         it[Keys.hideInRecents] = s.hideInRecents
+        it[Keys.lockEntries] = s.lockEntries
         it[Keys.haptics] = s.haptics
         it[Keys.selectedHabit] = s.selectedHabitId
         it[Keys.accent] = s.accent

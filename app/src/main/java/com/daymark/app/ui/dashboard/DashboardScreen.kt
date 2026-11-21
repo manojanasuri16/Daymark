@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.IconButton
 import com.daymark.app.domain.Habit
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import com.daymark.app.ui.components.AnimatedText
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -118,6 +119,8 @@ fun DashboardScreen(
     onOpenCalendar: () -> Unit,
     onAddHabit: () -> Unit,
     onEditHabit: (Habit) -> Unit,
+    /** Set when opened from the trackers grid: shows a back arrow and hides the tracker chips. */
+    onBack: (() -> Unit)? = null,
 ) {
     val selected by vm.selectedHabit.collectAsStateWithLifecycle()
     val overview by vm.overview.collectAsStateWithLifecycle()
@@ -189,6 +192,11 @@ fun DashboardScreen(
     ) {
         item("header") {
             Row(Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) {
+                    IconButton(onClick = onBack, modifier = Modifier.padding(end = 4.dp)) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "All trackers")
+                    }
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         Messages.greeting(LocalTime.now().hour),
@@ -215,7 +223,7 @@ fun DashboardScreen(
                 }
             }
         }
-        item("trackers") {
+        if (onBack == null) item("trackers") {
             LazyRow(state = chipsState, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 2.dp)) {
                 items(overview, key = { it.habit.id }) { summary ->
                     TrackerChip(

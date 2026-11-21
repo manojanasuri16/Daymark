@@ -101,6 +101,8 @@ fun CalendarScreen(
     val urges by vm.urges.collectAsStateWithLifecycle()
     val journal by vm.journal.collectAsStateWithLifecycle()
     val notes by vm.notes.collectAsStateWithLifecycle()
+    val calSettings by vm.settings.collectAsStateWithLifecycle()
+    val entriesLocked = calSettings?.lockEntries == true && !com.daymark.app.ui.lock.EntryLock.unlocked
     val zone = remember { ZoneId.systemDefault() }
     val today = LocalDate.now()
     val journeyStart = habit?.startAt ?: System.currentTimeMillis()
@@ -187,8 +189,14 @@ fun CalendarScreen(
             }
         }
         val dayEntries = relapses.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        val dayUrges = urges.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        val dayJournal = journal.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
+        val dayNotes = notes.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
         val status = statusOf(selected)
-        if (dayEntries.isEmpty()) {
+        val dayCount = dayEntries.size + dayUrges.size + dayJournal.size + dayNotes.size
+        if (entriesLocked && dayCount > 0) {
+            item("locked") { com.daymark.app.ui.lock.LockedEntriesCard(dayCount) }
+        } else if (dayEntries.isEmpty()) {
             item("dayEmpty") {
                 DaymarkCard(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -211,12 +219,11 @@ fun CalendarScreen(
         } else {
             items(dayEntries, key = { it.id }) { r -> EntryCard(r, zone) { onEdit(r) } }
         }
-        val dayUrges = urges.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
-        val dayJournal = journal.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
-        items(dayUrges, key = { "u${it.id}" }) { u -> UrgeCard(u, zone) { onEditUrge(u) } }
-        val dayNotes = notes.filter { StreakEngine.toDate(it.timestamp, zone) == selected }.sortedBy { it.timestamp }
-        items(dayNotes, key = { "n${it.id}" }) { n -> NoteCard(n, zone) { onEditNote(n) } }
-        items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
+        if (!entriesLocked) {
+            items(dayUrges, key = { "u${it.id}" }) { u -> UrgeCard(u, zone) { onEditUrge(u) } }
+            items(dayNotes, key = { "n${it.id}" }) { n -> NoteCard(n, zone) { onEditNote(n) } }
+            items(dayJournal, key = { "j${it.id}" }) { j -> JournalCard(j, zone) { onEditJournal(j) } }
+        }
         if (!selected.isAfter(today)) {
             item("logDay") {
                 FilledTonalButton(
