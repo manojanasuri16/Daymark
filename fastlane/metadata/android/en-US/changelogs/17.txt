@@ -1,0 +1,3 @@
+New in 1.8.0:
+• Today now shows all your trackers at once as tiles. Tap one to open its full page, hold one to add it to your home screen
+• New optional "Lock entries" in Settings > Privacy: your fingerprint is needed before slips, urges and journal entries are shown

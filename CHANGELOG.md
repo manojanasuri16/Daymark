@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.0 — 2026-11-21 (versionCode 17)
+
+• Today now shows all your trackers at once as tiles. Tap one to open its full page, hold one to add it to your home screen
+• New optional "Lock entries" in Settings > Privacy: your fingerprint is needed before slips, urges and journal entries are shown
+
+
 ## 1.7.1 — 2026-11-11 (versionCode 16)
 
 • A quiet hint on Today now shows how to add a tracker to your home screen: hold the circle
