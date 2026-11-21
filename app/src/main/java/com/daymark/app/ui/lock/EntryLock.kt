@@ -30,8 +30,8 @@ import com.daymark.app.ui.components.DaymarkCard
 
 /**
  * Optional lock for the private entries (slips, urges, "Not a slip" notes, journal).
- * Unlocked once per visit; [MainActivity] re-locks it after the same background grace as the app lock,
- * and unlocking the whole app (app lock) unlocks entries too.
+ * Unlocked for one Calendar visit only: [MainActivity] re-locks it whenever another tab is shown or the app
+ * goes to the background. It is separate from the app lock: unlocking the app never unlocks entries.
  */
 object EntryLock {
     var unlocked by mutableStateOf(false)

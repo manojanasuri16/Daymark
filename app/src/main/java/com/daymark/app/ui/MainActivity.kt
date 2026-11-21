@@ -106,12 +106,12 @@ class MainActivity : FragmentActivity() {
         // Re-lock after the app has been in the background for a short grace period
         // (the grace keeps file pickers for backup/restore from forcing a re-unlock).
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStop(owner: LifecycleOwner) { backgroundedAt = SystemClock.elapsedRealtime() }
+            override fun onStop(owner: LifecycleOwner) {
+                backgroundedAt = SystemClock.elapsedRealtime()
+                com.daymark.app.ui.lock.EntryLock.unlocked = false // private entries ask again after any trip away
+            }
             override fun onStart(owner: LifecycleOwner) {
-                if (backgroundedAt != 0L && SystemClock.elapsedRealtime() - backgroundedAt > LOCK_GRACE_MS) {
-                    locked = true
-                    com.daymark.app.ui.lock.EntryLock.unlocked = false
-                }
+                if (backgroundedAt != 0L && SystemClock.elapsedRealtime() - backgroundedAt > LOCK_GRACE_MS) locked = true
             }
         })
 
@@ -140,7 +140,7 @@ class MainActivity : FragmentActivity() {
                             label = "gate",
                         ) { gate ->
                             when (gate) {
-                                Gate.LOCKED -> LockScreen(onUnlocked = { locked = false; com.daymark.app.ui.lock.EntryLock.unlocked = true })
+                                Gate.LOCKED -> LockScreen(onUnlocked = { locked = false })
                                 Gate.ONBOARDING -> OnboardingScreen { habit -> vm.completeOnboarding(habit) }
                                 Gate.LOADING -> Box(Modifier.fillMaxSize())
                                 Gate.APP -> DaymarkNav(vm, s, pendingRoute) { pendingRoute = null }
@@ -225,6 +225,9 @@ private fun DaymarkNav(vm: MainViewModel, settings: Settings, pendingRoute: Stri
             onRouteHandled()
         }
     }
+
+    // Leaving the Calendar locks private entries again, so every visit asks.
+    LaunchedEffect(route) { if (route != null && route in Tab.entries.map { it.route } && route != Tab.CALENDAR.route) com.daymark.app.ui.lock.EntryLock.unlocked = false }
 
     fun selectTab(tab: Tab) = nav.navigate(tab.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }

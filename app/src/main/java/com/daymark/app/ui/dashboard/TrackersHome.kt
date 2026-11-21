@@ -2,7 +2,11 @@ package com.daymark.app.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+import com.daymark.app.ui.theme.Accent
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -95,6 +99,10 @@ fun TrackersHome(
         )
     }
 
+    val palette = remember(settings?.accent) { tileAccents(Accent.of(settings?.accent)) }
+    // A shared emoji (e.g. every tracker on the default) tells tiles apart poorly, so those show an initial instead.
+    val emojiCounts = remember(overview) { overview.groupingBy { it.habit.emoji }.eachCount() }
+
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 156.dp),
         modifier = Modifier.fillMaxSize(),
@@ -116,9 +124,11 @@ fun TrackersHome(
                 Text("Your trackers", style = MaterialTheme.typography.headlineLarge)
             }
         }
-        items(overview, key = { it.habit.id }) { summary ->
+        itemsIndexed(overview, key = { _, it -> it.habit.id }) { i, summary ->
             TrackerTile(
                 summary,
+                accent = palette[i % palette.size],
+                showEmoji = emojiCounts[summary.habit.emoji] == 1,
                 onClick = { haptics.tick(); onOpen(summary.habit) },
                 onLongClick = {
                     haptics.tick()
@@ -141,63 +151,61 @@ fun TrackersHome(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TrackerTile(summary: HabitSummary, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun TrackerTile(summary: HabitSummary, accent: Accent, showEmoji: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val h = summary.habit
     val build = summary.build
+    val dark = DaymarkTheme.colors.isDark
+    val (top, bottom) = if (dark) accent.heroDark else accent.heroLight
     val src = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(24.dp)
-    Surface(
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier
+    val soft = Color.White.copy(alpha = 0.78f)
+    Box(
+        Modifier
             .fillMaxWidth()
             .height(196.dp)
             .pressScale(src, 0.96f)
             .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(top), Color(bottom))))
             .combinedClickable(
                 interactionSource = src, indication = null,
                 onClickLabel = "Open ${h.displayName}", onClick = onClick,
                 onLongClickLabel = "Add to home screen", onLongClick = onLongClick,
             ),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(h.emoji, fontSize = 26.sp, modifier = Modifier.weight(1f))
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (showEmoji) Text(h.emoji, fontSize = 20.sp)
+                    else Text(
+                        h.displayName.trim().take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
                 if (build != null) {
                     Box(contentAlignment = Alignment.Center) {
                         ProgressRing(
                             progress = if (build.todayDone) 1f else build.todayProgress,
                             modifier = Modifier.size(34.dp),
                             strokeWidth = 4.dp,
+                            trackColor = Color.White.copy(alpha = 0.22f),
+                            color = Color.White,
                         )
-                        if (build.todayDone) {
-                            Icon(Icons.Rounded.Check, "Done today", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
+                        if (build.todayDone) Icon(Icons.Rounded.Check, "Done today", Modifier.size(18.dp), tint = Color.White)
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                h.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                when {
-                    h.isBuild -> "Building"
-                    h.isReduce -> "Cutting down"
-                    else -> "Breaking free"
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Spacer(Modifier.weight(1f))
             val days = if (build != null) build.currentStreak.toLong() else summary.stats.currentDays
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     days.toString(),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = if (build == null) DaymarkTheme.colors.clean else MaterialTheme.colorScheme.primary,
+                    color = Color.White,
                 )
                 Spacer(Modifier.size(6.dp))
                 Text(
@@ -207,12 +215,19 @@ private fun TrackerTile(summary: HabitSummary, onClick: () -> Unit, onLongClick:
                         else -> "days"
                     },
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = soft,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
             Text(
+                h.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
                 when {
+                    build == null && h.isReduce -> "Cutting down · best ${summary.stats.longestDays} d"
                     build == null -> "Best ${summary.stats.longestDays} d"
                     build.todayDone -> "Done today"
                     !build.todayScheduled -> "Rest day"
@@ -220,11 +235,17 @@ private fun TrackerTile(summary: HabitSummary, onClick: () -> Unit, onLongClick:
                     else -> "Not yet today"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = soft,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
     }
+}
+
+/** Tile colours: the app's accent first, then the other colourful accents in a fixed, well-spread order. */
+internal fun tileAccents(appAccent: Accent): List<Accent> {
+    val order = listOf(Accent.DUSK, Accent.FOREST, Accent.SUNSET, Accent.OCEAN, Accent.ROSE, Accent.AMBER, Accent.VIOLET)
+    return listOf(appAccent) + order.filter { it != appAccent && it != Accent.GRAPHITE }
 }
 
 @Composable

@@ -304,7 +304,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setDynamicColor(v: Boolean) = viewModelScope.launch { c.settings.setDynamicColor(v) }
     fun setAppLock(v: Boolean) = viewModelScope.launch { c.settings.setAppLock(v) }
     fun setHideInRecents(v: Boolean) = viewModelScope.launch { c.settings.setHideInRecents(v) }
-    fun setLockEntries(v: Boolean) = viewModelScope.launch { c.settings.setLockEntries(v) }
+    fun setLockEntries(v: Boolean) = viewModelScope.launch {
+        com.daymark.app.ui.lock.EntryLock.unlocked = false
+        c.settings.setLockEntries(v)
+    }
     fun setHaptics(v: Boolean) = viewModelScope.launch { c.settings.setHaptics(v) }
 
     /** [password] blank = plain JSON. */
