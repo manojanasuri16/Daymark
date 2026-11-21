@@ -40,14 +40,14 @@ Every day you mark is a day you made. A slip or a missed day never erases what y
 
 **Widgets.** Streak, Progress ring, Heatmap, Daily motivation, Quick actions and Your progress for your trackers, plus an Event widget with full, translucent or transparent backgrounds and an "upcoming" mode that shows your next event. Six styles (Dusk, Dawn, Forest, Midnight, Sunrise, Minimal). Press and hold a tracker's circle in the app to add its widget in one step, already set to that tracker.
 
-**Many trackers.** Follow as many as you like. Each keeps its own streaks, calendar, insights and achievements.
+**Many trackers.** Follow as many as you like. Today shows them all as tiles with their streaks and today's progress; tap one for its full page. Each keeps its own streaks, calendar, insights and achievements.
 
 ## Private by design
 
 - No account, no ads, no analytics, no crash-reporting SDK. The app does not request the `INTERNET` permission, so it cannot send data anywhere.
 - Everything lives on your device. Android cloud backup is turned off.
 - **Discreet mode** (on by default): widgets, notifications, the Quick Settings tile and share images never name what you track.
-- Optional app lock with fingerprint, face or device PIN (handled by Android), and optional "hide in recents".
+- Optional app lock with fingerprint, face or device PIN (handled by Android), an optional "Lock entries" that hides slips, urges and journal until you unlock, and optional "hide in recents".
 - Backups are a JSON file you control, optionally password-protected (AES-256-GCM, PBKDF2 key). Optional automatic daily backups go to a folder you pick, keeping the last seven.
 - The only extra permissions are notifications for reminders you switch on, and an optional calendar read (`READ_CALENDAR`) that is requested only when you tap "Import from calendar".
 

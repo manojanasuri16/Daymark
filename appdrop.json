@@ -11,6 +11,7 @@
   "visibility": "public",
   "icon": "appdrop/icon.png",
   "screenshots": [
+    "appdrop/screenshots/v18_0_trackers.png",
     "appdrop/screenshots/v17_1_build_habit.png",
     "appdrop/screenshots/v17_2_break_habit.png",
     "appdrop/screenshots/v17_3_slip.png",

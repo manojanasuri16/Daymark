@@ -2,6 +2,10 @@ Daymark is a calm, private habit app for building good habits, breaking unwanted
 
 Everything stays on your phone. No account, no ads, no analytics and no internet permission.
 
+## What's new in 1.8
+- **All your trackers at a glance:** with more than one tracker, Today shows every one as a tile with its streak and today's progress. Tap a tile for its full page, hold it to add a widget
+- **Lock entries:** an optional fingerprint lock (Settings > Privacy) before your slips, urges and journal entries are shown
+
 ## What's new in 1.7
 - **Long-press to add a widget:** press and hold a tracker's circle (or its chip) to preview the widgets for that tracker, pick a style and add it to your home screen in one step. The widget stays on that tracker, even when you switch trackers in the app
 
@@ -34,7 +38,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 ## Journal, Calendar and Insights
 - A journal for any day, with a mood, a gentle prompt and up to three photos that stay inside Daymark
 - A swipeable calendar: clean days in green, slips in red, untracked days in grey, with a dot on days that have a note and a small badge on every day you wrote a journal entry, so you can always find them (build habits get the same badge and show that day's entries)
-- Track as many habits as you like. Each tracker keeps its own streaks, calendar, insights and achievements
+- Track as many habits as you like. Each tracker keeps its own streaks, calendar, insights and achievements, and Today shows them all as tiles
 
 ## Events
 - Count down to a birthday, trip or deadline, count the time since a fresh start, or run a timer
@@ -58,6 +62,7 @@ Everything stays on your phone. No account, no ads, no analytics and no internet
 - Open source (MIT), so you can check every privacy claim in the code
 - Discreet mode (on by default): widgets, notifications and share cards never name what you track
 - Optional app lock with fingerprint, face or device PIN, handled by Android
+- Optional "Lock entries": slips, urges and journal stay hidden until you unlock them
 - Optional "hide in recents" blanks the app preview and blocks screenshots
 - Quick Settings tile and launcher shortcuts for urge, journal and log
 - The only extra permissions are notifications for the reminders you switch on, and an optional calendar read that happens only when you tap "Import from calendar"
